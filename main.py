@@ -1,10 +1,9 @@
 import sys
-import math
 import pandas as pd
 import numpy as np
-import os
+from os.path import isfile
 
-from parser import Parser
+from fasta_parser import Parser
 from net_v2 import Nnet
 
 
@@ -29,7 +28,11 @@ def main():
               '\n\t' + args[0] +
               ' -pr -md <model_name>, "model/model" by default\n\
                     -qr <query_rna.fasta>\n\
-                    -sv flag if you want to save feature tables')
+                    -sv flag if you want to save feature tables\n\n\
+-Usage for 10-fold cross-validation:' +
+              '\n\t' + args[0] +
+              ' -cv -cd <coding_rna.fasta>\n\
+                    -nc <noncoding_rna.fasta> \n')
         exit(0)
 
     # Training features extraction, training and prediction
@@ -40,7 +43,8 @@ def main():
         cd_file = args[args.index('-cd') + 1]
         nc_file = args[args.index('-nc') + 1]
         qr_file = args[args.index('-qr') + 1]
-        if '.fasta' in cd_file and '.fasta' in nc_file and '.fasta' in qr_file:
+        if '.fasta' in cd_file and '.fasta' in nc_file and '.fasta' in qr_file and \
+                isfile(cd_file) and isfile(nc_file) and isfile(qr_file):
             # Parsing query file
             print('-Processing ' + qr_file + '...')
             parser_qr = Parser(qr_file)
@@ -67,9 +71,9 @@ def main():
             nc_hex_freq = parser_nc.gen_hex_tab()
             hex_in_nc = parser_nc.count_hex()
 
-            h_score_nc = hex_score(cd_hex_freq, nc_hex_freq, hex_in_nc)
-            h_score_cd = hex_score(cd_hex_freq, nc_hex_freq, hex_in_cd)
-            h_score_qr = hex_score(cd_hex_freq, nc_hex_freq, hex_in_qr)
+            h_score_nc = Nnet.hex_score(cd_hex_freq, nc_hex_freq, hex_in_nc)
+            h_score_cd = Nnet.hex_score(cd_hex_freq, nc_hex_freq, hex_in_cd)
+            h_score_qr = Nnet.hex_score(cd_hex_freq, nc_hex_freq, hex_in_qr)
             h_sc_nc_df = pd.DataFrame([nc_feat['Name'], h_score_nc]).T
             h_sc_cd_df = pd.DataFrame([cd_feat['Name'], h_score_cd]).T
             h_sc_qr_df = pd.DataFrame([qr_feat['Name'], h_score_qr]).T
@@ -126,7 +130,11 @@ def main():
 
         qr_file = args[args.index('-qr') + 1]
         if '.csv' in cd_file_f and '.csv' in nc_file_f and \
-           '.csv' in cd_file_u and '.csv' in nc_file_u and '.fasta' in qr_file:
+           '.csv' in cd_file_u and '.csv' in nc_file_u and \
+           '.fasta' in qr_file and \
+           isfile(cd_file_f) and isfile(cd_file_u) and \
+           isfile(nc_file_f) and isfile(nc_file_u) and \
+           isfile(qr_file):
 
             # Parsing query file
             print('-Processing ' + qr_file + '...')
@@ -148,7 +156,7 @@ def main():
             nc_hex_freq = nc_hex_freq.drop(nc_hex_freq.index[0])
 
             hex_in_qr = parser_qr.count_hex()
-            h_score_qr = hex_score(cd_hex_freq, nc_hex_freq, hex_in_qr)
+            h_score_qr = Nnet.hex_score(cd_hex_freq, nc_hex_freq, hex_in_qr)
             h_sc_qr_df = pd.DataFrame([qr_feat['Name'], h_score_qr]).T
 
             h_sc_qr_df.columns = ['Name', 'Hex_score']
@@ -189,7 +197,8 @@ def main():
         model = args[args.index('-qr') + 1]
         cd_file_h = args[args.index('-cd') + 1]
         nc_file_h = args[args.index('-nc') + 1]
-        if '.fasta' in qr_file and '.csv' in cd_file_h and '.csv' in nc_file_h:
+        if '.fasta' in qr_file and '.csv' in cd_file_h and '.csv' in nc_file_h and \
+                isfile(qr_file) and isfile(cd_file_h) and isfile(nc_file_h):
 
             # Parsing query file
             print('-Processing ' + qr_file + '...')
@@ -207,7 +216,7 @@ def main():
             cd_hex_freq = cd_hex_freq.drop(cd_hex_freq.index[0])
 
             hex_in_qr = parser_qr.count_hex()
-            h_score_qr = hex_score(cd_hex_freq, nc_hex_freq, hex_in_qr)
+            h_score_qr = Nnet.hex_score(cd_hex_freq, nc_hex_freq, hex_in_qr)
             h_sc_qr_df = pd.DataFrame([qr_feat['Name'], h_score_qr]).T
 
             h_sc_qr_df.columns = ['Name', 'Hex_score']
@@ -244,53 +253,29 @@ def main():
             with open("prediction.txt", 'w') as f_obj:
                 f_obj.write(res)
             exit(0)
+
         else:
             print('Error: coding/noncoding hexamer file or query fasta file missing or wrong file format')
+            exit(1)
+
+    # 10-fold cross-validation
+    elif '-cv' in args and '-cd' in args and '-nc'in args:
+        cd_file = args[args.index('-cd') + 1]
+        nc_file = args[args.index('-nc') + 1]
+        if '.fasta' in cd_file and '.fasta' in nc_file and \
+                isfile(cd_file) and isfile(nc_file):
+
+            accurs = Nnet.crossval_fasta(cd_file, nc_file)
+            with open('accuracy.txt', 'w') as f_obj:
+                f_obj.write(str(accurs) + '\n' + str(sum(accurs)/len(accurs)))
+            exit(0)
+        else:
+            print('Error: coding/noncoding fasta file missing or wrong file format')
             exit(1)
 
     else:
         print('Error: unknown argument')
         exit(1)
-
-
-def hex_score(ref_cd, ref_nc, query):
-    """counts hexamer score for every
-       sequence in the query list
-       using reference frequencies.
-    """
-    if str(type(ref_cd)) == "<class 'pandas.core.frame.DataFrame'>" and \
-       str(type(ref_nc)) == "<class 'pandas.core.frame.DataFrame'>":
-        scores = []
-        for seq in query:
-            score = 0
-            observ_hex = len(query)
-            for hexamer in seq:
-                if int(ref_cd[hexamer]) == 0:
-                    score += -1
-                elif int(ref_nc[hexamer]) == 0:
-                    score += 1
-                else:
-                    score += math.log10(int(ref_cd[hexamer]) / int(ref_nc[hexamer]))
-            if observ_hex != 0:
-                score /= observ_hex
-            scores.append(score)
-        return pd.Series(scores)
-    else:
-        scores = []
-        for seq in query:
-            score = 0
-            observ_hex = len(query)
-            for hexamer in seq:
-                if int(ref_cd[hexamer]) == 0:
-                    score += -1
-                elif int(ref_nc[hexamer]) == 0:
-                    score += 1
-                else:
-                    score += math.log10(int(ref_cd[hexamer]) / int(ref_nc[hexamer]))
-            if observ_hex != 0:
-                score /= observ_hex
-            scores.append(score)
-        return pd.Series(scores)
 
 
 if __name__ == "__main__":
