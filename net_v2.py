@@ -222,7 +222,7 @@ class Nnet:
             hex_in_qr = parser_qr.count_hex()
 
             # Parsing ref coding file
-            parser_cd = Parser(locdir + 'test_cd.fasta')
+            parser_cd = Parser(locdir + 'train_cd.fasta')
             parser_cd.parse()
             cd_feat = parser_cd.gen_feat_tab()
             cd_rscu = parser_cd.rscu_tab(save=False)
@@ -230,7 +230,7 @@ class Nnet:
             hex_in_cd = parser_cd.count_hex()
 
             # Parsing ref noncoding file
-            parser_nc = Parser(locdir + 'test_nc.fasta')
+            parser_nc = Parser(locdir + 'train_nc.fasta')
             parser_nc.parse()
             nc_feat = parser_nc.gen_feat_tab()
             nc_rscu = parser_nc.rscu_tab(save=False)
