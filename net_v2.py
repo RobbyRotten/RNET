@@ -164,7 +164,6 @@ class Nnet:
         del records_cd
 
         # forming nc files
-        test_records_nc, train_records_nc = [], []
         for record in SeqIO.parse(fasta_nc, "fasta"):
             records_nc.append(record)
         test_len_nc = int(len(records_nc) * 0.1)
@@ -172,6 +171,7 @@ class Nnet:
         for n in range(1, 11):
             print('-Splitting noncoding file ' + str(n) + '/10...')
             locdir = "crossval/fold_" + str(n) + '/'
+            test_records_nc, train_records_nc = [], []
             nums_nc = [m for m in range(len(records_nc))]
             while len(test_nums_nc) < test_len_nc:
                 ind = nums_nc.pop(np.random.randint(0, len(nums_nc)))
@@ -182,9 +182,9 @@ class Nnet:
                     break
             for k in range(len(records_nc)):
                 if k in test_nums_nc:
-                    test_records_nc.append(records_cd[k])
+                    test_records_nc.append(records_nc[k])
                 else:
-                    train_records_nc.append(records_cd[k])
+                    train_records_nc.append(records_nc[k])
             test_nc_out, train_nc_out = '', ''
             for record in test_records_nc:
                 test_nc_out += '>' + str(record.name) + '\n' + str(record.seq) + '\n'
