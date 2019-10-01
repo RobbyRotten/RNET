@@ -91,13 +91,15 @@ class Nnet:
             self.model.add(layers.Dense(100,
                                         activation='sigmoid',
                                         kernel_initializer=tf.keras.initializers.random_normal(seed=0),
-                                        bias_initializer=tf.keras.initializers.random_normal(seed=0)
+                                        bias_initializer=tf.keras.initializers.random_normal(seed=0),
+                                        kernel_regularizer=tf.keras.regularizers.l1_l2(),
+                                        bias_regularizer=tf.keras.regularizers.l1_l2()
                                         )
                            )
         self.model.add(layers.Dense(1, activation='sigmoid'))
 
-        self.model.compile(optimizer=tf.keras.optimizers.SGD(),                 # tf.train.AdamOptimizer(0.01),
-                           loss=tf.keras.losses.mean_squared_error,           # 'msle',  # 'categorical_crossentropy',
+        self.model.compile(optimizer=tf.keras.optimizers.SGD(),
+                           loss=tf.keras.losses.mean_squared_error,           
                            metrics=['accuracy']                               # [tf.keras.metrics.mean_absolute_error]
                            )
 
@@ -119,7 +121,10 @@ class Nnet:
 
     def train(self):
         lr_callback = tf.keras.callbacks.LearningRateScheduler(self.lr_schedule)
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard', histogram_freq=1)
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard',
+                                                              histogram_freq=1,
+                                                              write_grads=True
+                                                              )
 
         self.model.fit(self.data_tr,
                        self.labels_tr,
