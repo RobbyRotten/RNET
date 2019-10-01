@@ -19,10 +19,11 @@ query = query.drop(['Name'], axis=1).fillna(0)
 
 nnet = Nnet(data_cd=coding, data_nc=noncoding, data_qr=query, layers_num=7, epochs=20)
 nnet.preprocessing()
-nnet.set_model()
-nnet.train()
-labels_out = nnet.predict()
-nnet.save_model()
+nnet.model_by_layers()
+# nnet.set_model()
+# nnet.train()
+# labels_out = nnet.predict()
+# nnet.save_model()
 # nnet.load_model()
 
 """

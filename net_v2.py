@@ -79,8 +79,10 @@ class Nnet:
             shutil.rmtree('tensorboard')
             os.mkdir('tensorboard')
         os.mkdir('tensorboard/metrics')
-        file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
-        file_writer.set_as_default()
+        sess = tf.compat.v1.Session()
+        file_writer = tf.compat.v1.summary.FileWriter("tensorboard/metrics", sess.graph, session=sess)
+        # file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
+        # file_writer.set_as_default()
 
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
@@ -99,9 +101,46 @@ class Nnet:
         self.model.add(layers.Dense(1, activation='sigmoid'))
 
         self.model.compile(optimizer=tf.keras.optimizers.SGD(),
-                           loss=tf.keras.losses.mean_squared_error,           
+                           loss=tf.keras.losses.mean_squared_error,
                            metrics=['accuracy']                               # [tf.keras.metrics.mean_absolute_error]
                            )
+
+    def model_by_layers(self):
+        def layer(inp, chan_in, chan_out, name='FC'):
+            with tf.name_scope(name):
+                w = tf.Variable(tf.truncated_normal([chan_in, chan_out], stddev=0.1), name='W')
+                b = tf.Variable(tf.constant(0.1, shape=[1, chan_out]), name='B')
+                act = tf.nn.sigmoid(tf.matmul(inp, w) + b)
+                return act
+
+        sess = tf.Session()
+
+        self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
+        self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
+
+        x = tf.placeholder(tf.float32, shape=[None, self.feat_num])
+        y = tf.placeholder(tf.float32, shape=[None, 1])
+        x_inp = tf.reshape(x, [1, self.feat_num])
+
+        layer_1 = layer(x_inp, self.feat_num, 100)
+        layer_2 = layer(layer_1, 100, 100)
+        layer_3 = layer(layer_2, 100, 100)
+        layer_4 = layer(layer_3, 100, 100)
+        layer_5 = layer(layer_4, 100, 100)
+        layer_6 = layer(layer_5, 100, 100)
+        layer_7 = layer(layer_6, 100, 1)
+
+        mse = tf.reduce_mean(tf.compat.v2.losses.mean_squared_error(y, layer_7))
+        train_step = tf.train.GradientDescentOptimizer(0.7).minimize(mse)
+        correct_pred = tf.equal(layer_7, y)
+        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+
+        sess.run(tf.global_variables_initializer())
+        for i in range(self.epochs):
+            [train_accuracy] = sess.run([accuracy], feed_dict={x: self.data_tr, y: self.labels_tr})
+            if i % 500 == 0:
+                print('-Step ' + str(i) + ' accuracy ' + str(train_accuracy))
+            sess.run(train_step, feed_dict={{x: self.data_tr, y: self.labels_tr}})
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
