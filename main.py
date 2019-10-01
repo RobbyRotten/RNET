@@ -1,6 +1,5 @@
 import sys
 import pandas as pd
-import numpy as np
 from os.path import isfile
 
 from fasta_parser import Parser
@@ -96,8 +95,8 @@ def main():
             nnet = Nnet(data_cd=cd_feat.drop(['Name'], axis=1).fillna(0),
                         data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
-                        layers=7,
-                        epochs=10)
+                        layers_num=7,
+                        epochs=20000)
             del cd_feat, nc_feat, qr_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
             nnet.set_model()
@@ -169,7 +168,7 @@ def main():
             nnet = Nnet(data_cd=cd_feat.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
                         data_nc=nc_feat.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
-                        layers=7,
+                        layers_num=7,
                         epochs=10)
             del qr_feat, nc_feat, cd_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
@@ -226,7 +225,7 @@ def main():
                 qr_feat.to_csv('%s_features.csv' % qr_file[:-6], sep=";")
 
             nnet = Nnet(data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
-                        layers=7,
+                        layers_num=7,
                         epochs=10000,
                         model=model)
             nnet.preprocessing()

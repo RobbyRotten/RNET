@@ -1,9 +1,9 @@
 from orf_handler_v2 import ORFHandler
-from parser import Parser
+from fasta_parser import Parser
 
 
 def f_use():
-    filename = 'test4/lncrnas4.fasta'
+    filename = '../RNET1/test4/lncrnas4.fasta'
     p = Parser(filename)
     p.parse()
     feat = p.gen_feat_tab()

@@ -12,7 +12,7 @@ from fasta_parser import Parser
 
 class Nnet:
 
-    def __init__(self, data_cd=None, data_nc=None, data_qr=None, layers=7, epochs=10000, model=None):
+    def __init__(self, data_cd=None, data_nc=None, data_qr=None, layers_num=7, epochs=10000, model=None):
         self.data_cd = data_cd.values if data_cd is not None else [0]
         self.data_nc = data_nc.values if data_nc is not None else [0]
         self.data_qr = data_qr.values if data_qr is not None else [0]
@@ -22,7 +22,7 @@ class Nnet:
         self.labels_tr = None
         self.model = None
         self.feat_num = len(data_qr.columns) if data_qr is not None else len(data_cd.columns)
-        self.layers_num = layers - 2
+        self.layers_num = layers_num - 2
         self.epochs = epochs
         self.path = model if model is not None else model
 
@@ -73,6 +73,15 @@ class Nnet:
         return normalized
 
     def set_model(self):
+        try:
+            os.mkdir('tensorboard')
+        except FileExistsError:
+            shutil.rmtree('tensorboard')
+            os.mkdir('tensorboard')
+        os.mkdir('tensorboard/metrics')
+        file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
+        file_writer.set_as_default()
+
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
 
@@ -87,13 +96,37 @@ class Nnet:
                            )
         self.model.add(layers.Dense(1, activation='sigmoid'))
 
-        self.model.compile(optimizer=tf.train.GradientDescentOptimizer(0.7),  # tf.train.AdamOptimizer(0.01),
+        self.model.compile(optimizer=tf.keras.optimizers.SGD(),                 # tf.train.AdamOptimizer(0.01),
                            loss=tf.keras.losses.mean_squared_error,           # 'msle',  # 'categorical_crossentropy',
-                           metrics=[tf.keras.metrics.mean_absolute_error]     # ['accuracy'])
+                           metrics=['accuracy']                               # [tf.keras.metrics.mean_absolute_error]
                            )
 
+    def lr_schedule(self, epoch):
+        """returns a custom learning rate
+           that decreases as epochs progress.
+        """
+        epochs = self.epochs
+        learning_rate = 0.7
+        if epoch > epochs * 0.5:
+            learning_rate = 0.5
+        if epoch > epochs * 0.75:
+            learning_rate = 0.01
+        if epoch > epochs * 0.9:
+            learning_rate = 0.007
+
+        tf.summary.scalar('learning rate', learning_rate)
+        return learning_rate
+
     def train(self):
-        self.model.fit(self.data_tr, self.labels_tr, epochs=self.epochs, batch_size=100)
+        lr_callback = tf.keras.callbacks.LearningRateScheduler(self.lr_schedule)
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard', histogram_freq=1)
+
+        self.model.fit(self.data_tr,
+                       self.labels_tr,
+                       epochs=self.epochs,
+                       batch_size=100,
+                       callbacks=[tensorboard_callback, lr_callback]
+                       )
 
     def update_constants(self):
         pass
@@ -257,7 +290,7 @@ class Nnet:
             nnet = Nnet(data_cd=cd_feat.drop(['Name'], axis=1).fillna(0),
                         data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
-                        layers=7,
+                        layers_num=7,
                         epochs=10)
             del cd_feat, nc_feat, qr_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
@@ -277,6 +310,10 @@ class Nnet:
 
     @classmethod
     def accuracy(cls, file, prefix_cd, prefix_nc):
+        """counts accuracy of the prediction
+           using prediction file and prefixes of
+           coding and noncoding transcripts.
+        """
         positive = 0
         with open(file, 'r') as f_obj:
             lines = f_obj.readlines()
