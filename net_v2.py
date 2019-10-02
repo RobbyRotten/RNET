@@ -136,11 +136,20 @@ class Nnet:
         accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
         sess.run(tf.global_variables_initializer())
+
+        i_stored = 1
         for i in range(self.epochs):
-            [train_accuracy] = sess.run([accuracy], feed_dict={x: self.data_tr, y: self.labels_tr})
-            if i % 500 == 0:
-                print('-Step ' + str(i) + ' accuracy ' + str(train_accuracy))
-            sess.run(train_step, feed_dict={{x: self.data_tr, y: self.labels_tr}})
+            print("-Processing epoch " + str(i) + '...')
+            for j in range(len(self.data_tr)):
+                [train_accuracy] = sess.run([accuracy],
+                                            feed_dict={x: self.data_tr[j].reshape(1, 12),
+                                                       y: self.labels_tr[j].reshape(1, 1)})
+                if i_stored != i:
+                    print('\taccuracy: ' + str(train_accuracy))
+                sess.run(train_step,
+                         feed_dict={x: self.data_tr[j].reshape(1, 12),
+                                    y: self.labels_tr[j].reshape(1, 1)})
+                i_stored = i
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
