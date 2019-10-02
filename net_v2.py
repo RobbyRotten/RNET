@@ -122,34 +122,41 @@ class Nnet:
         y = tf.placeholder(tf.float32, shape=[None, 1])
         x_inp = tf.reshape(x, [1, self.feat_num])
 
-        layer_1 = layer(x_inp, self.feat_num, 100)
-        layer_2 = layer(layer_1, 100, 100)
-        layer_3 = layer(layer_2, 100, 100)
-        layer_4 = layer(layer_3, 100, 100)
-        layer_5 = layer(layer_4, 100, 100)
-        layer_6 = layer(layer_5, 100, 100)
-        layer_7 = layer(layer_6, 100, 1)
+        layers_dict = dict()
+        layers_dict['layer_1'] = layer(x_inp, self.feat_num, 100)
+        for n in range(self.layers_num):
+            layers_dict['layer_' + str(n+2)] = layer(layers_dict['layer_' + str(n+1)], 100, 100)
+        layers_dict['layer_' + str(self.layers_num+2)] = layer(layers_dict['layer_' + str(self.layers_num+1)],
+                                                               100, 1)
 
-        mse = tf.reduce_mean(tf.compat.v2.losses.mean_squared_error(y, layer_7))
-        train_step = tf.train.GradientDescentOptimizer(0.7).minimize(mse)
-        correct_pred = tf.equal(layer_7, y)
+        layer_out = layers_dict['layer_' + str(self.layers_num+1)]
+        mse = tf.reduce_mean(tf.compat.v2.losses.mean_squared_error(y, layer_out))
+        lr_placeholder = tf.placeholder(tf.float32, [], name='learning_rate')
+        train_step = tf.train.GradientDescentOptimizer(lr_placeholder).minimize(mse)
+        correct_pred = tf.equal(layer_out, y)
         accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-
         sess.run(tf.global_variables_initializer())
 
-        i_stored = 1
-        for i in range(self.epochs):
-            print("-Processing epoch " + str(i) + '...')
-            for j in range(len(self.data_tr)):
+        e_stored = 1
+        for e in range(self.epochs):
+            lr = self.lr_schedule(e)
+            print("-Processing epoch " + str(e+1) + '...')
+            for j in range(len(self.data_tr[:10])):
                 [train_accuracy] = sess.run([accuracy],
                                             feed_dict={x: self.data_tr[j].reshape(1, 12),
-                                                       y: self.labels_tr[j].reshape(1, 1)})
-                if i_stored != i:
+                                                       y: self.labels_tr[j].reshape(1, 1),
+                                                       lr_placeholder: lr
+                                                       }
+                                            )
+                if e_stored != e:
                     print('\taccuracy: ' + str(train_accuracy))
                 sess.run(train_step,
                          feed_dict={x: self.data_tr[j].reshape(1, 12),
-                                    y: self.labels_tr[j].reshape(1, 1)})
-                i_stored = i
+                                    y: self.labels_tr[j].reshape(1, 1),
+                                    lr_placeholder: lr
+                                    }
+                         )
+                e_stored = e
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
