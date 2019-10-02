@@ -79,10 +79,26 @@ class Nnet:
             shutil.rmtree('tensorboard')
             os.mkdir('tensorboard')
         os.mkdir('tensorboard/metrics')
-        sess = tf.compat.v1.Session()
+
+        # ----------- to check--------------------------------
+        config = tf.ConfigProto(intra_op_parallelism_threads=2,
+                                inter_op_parallelism_threads=2,
+                                allow_soft_placement=True,
+                                device_count={'CPU': 2})
+
+        sess = tf.Session(config=config)
+        tf.compat.v1.keras.backend.set_session(sess)
+
+        os.environ["OMP_NUM_THREADS"] = "2"
+        os.environ["KMP_BLOCKTIME"] = "30"
+        os.environ["KMP_SETTINGS"] = "1"
+        os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
+        # ------------------------------------------------------
+
         file_writer = tf.compat.v1.summary.FileWriter("tensorboard/metrics", sess.graph, session=sess)
         # file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
         # file_writer.set_as_default()
+        file_writer.add_run_metadata(tf.compat.v1.RunMetadata(), tag='run meta')
 
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
@@ -112,8 +128,19 @@ class Nnet:
                 b = tf.Variable(tf.constant(0.1, shape=[1, chan_out]), name='B')
                 act = tf.nn.sigmoid(tf.matmul(inp, w) + b)
                 return act
+        # ----------- to check--------------------------------
+        config = tf.ConfigProto(intra_op_parallelism_threads=2,
+                                inter_op_parallelism_threads=2,
+                                allow_soft_placement=True,
+                                device_count={'CPU': 2})
 
-        sess = tf.Session()
+        sess = tf.Session(config=config)
+
+        os.environ["OMP_NUM_THREADS"] = "2"
+        os.environ["KMP_BLOCKTIME"] = "30"
+        os.environ["KMP_SETTINGS"] = "1"
+        os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
+        # ------------------------------------------------------
 
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
@@ -141,7 +168,7 @@ class Nnet:
         for e in range(self.epochs):
             lr = self.lr_schedule(e)
             print("-Processing epoch " + str(e+1) + '...')
-            for j in range(len(self.data_tr[:10])):
+            for j in range(len(self.data_tr[:100])):
                 [train_accuracy] = sess.run([accuracy],
                                             feed_dict={x: self.data_tr[j].reshape(1, 12),
                                                        y: self.labels_tr[j].reshape(1, 1),
@@ -157,6 +184,11 @@ class Nnet:
                                     }
                          )
                 e_stored = e
+            if e == self.epochs - 1:
+                tf.summary.histogram('input', layers_dict['layer_1'])
+                for l in range(self.layers_num):
+                    lname = 'layer_' + str(l+1)
+                    tf.summary.histogram(lname, layers_dict[lname])
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
@@ -176,6 +208,11 @@ class Nnet:
 
     def train(self):
         lr_callback = tf.keras.callbacks.LearningRateScheduler(self.lr_schedule)
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss',
+                                                      min_delta=1e-06,
+                                                      patience=int(self.epochs * 0.1),
+                                                      restore_best_weights=True
+                                                      )
         tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard',
                                                               histogram_freq=1,
                                                               write_grads=True
@@ -185,7 +222,9 @@ class Nnet:
                        self.labels_tr,
                        epochs=self.epochs,
                        batch_size=100,
-                       callbacks=[tensorboard_callback, lr_callback]
+                       callbacks=[tensorboard_callback,
+                                  lr_callback,
+                                  early_stop]
                        )
 
     def update_constants(self):
