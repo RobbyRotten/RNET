@@ -81,12 +81,12 @@ class Nnet:
         os.mkdir('tensorboard/metrics')
 
         # ----------- to check--------------------------------
-        config = tf.ConfigProto(intra_op_parallelism_threads=2,
-                                inter_op_parallelism_threads=2,
-                                allow_soft_placement=True,
-                                device_count={'CPU': 2})
+        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=2,
+                                          inter_op_parallelism_threads=2,
+                                          allow_soft_placement=True,
+                                          device_count={'CPU': 2})
 
-        sess = tf.Session(config=config)
+        sess = tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
 
         os.environ["OMP_NUM_THREADS"] = "2"
@@ -108,8 +108,8 @@ class Nnet:
         for n in range(self.layers_num):
             self.model.add(layers.Dense(100,
                                         activation='sigmoid',
-                                        kernel_initializer=tf.keras.initializers.random_normal(seed=0),
-                                        bias_initializer=tf.keras.initializers.random_normal(seed=0),
+                                        kernel_initializer=tf.compat.v1.keras.initializers.random_normal(seed=0),
+                                        bias_initializer=tf.compat.v1.keras.initializers.random_normal(seed=0),
                                         kernel_regularizer=tf.keras.regularizers.l1_l2(),
                                         bias_regularizer=tf.keras.regularizers.l1_l2()
                                         )
@@ -121,32 +121,31 @@ class Nnet:
                            metrics=['accuracy']                               # [tf.keras.metrics.mean_absolute_error]
                            )
 
-    def model_by_layers(self):
+    def model_by_layers(self, start_train=True):
         def layer(inp, chan_in, chan_out, name='FC'):
             with tf.name_scope(name):
-                w = tf.Variable(tf.truncated_normal([chan_in, chan_out], stddev=0.1), name='W')
+                w = tf.Variable(tf.random.truncated_normal([chan_in, chan_out], stddev=0.1), name='W')
                 b = tf.Variable(tf.constant(0.1, shape=[1, chan_out]), name='B')
                 act = tf.nn.sigmoid(tf.matmul(inp, w) + b)
                 return act
-        # ----------- to check--------------------------------
-        config = tf.ConfigProto(intra_op_parallelism_threads=2,
-                                inter_op_parallelism_threads=2,
-                                allow_soft_placement=True,
-                                device_count={'CPU': 2})
 
-        sess = tf.Session(config=config)
+        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=2,
+                                          inter_op_parallelism_threads=2,
+                                          allow_soft_placement=True,
+                                          device_count={'CPU': 2})
+
+        sess = tf.compat.v1.Session(config=config)
 
         os.environ["OMP_NUM_THREADS"] = "2"
         os.environ["KMP_BLOCKTIME"] = "30"
         os.environ["KMP_SETTINGS"] = "1"
         os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
-        # ------------------------------------------------------
 
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
 
-        x = tf.placeholder(tf.float32, shape=[None, self.feat_num])
-        y = tf.placeholder(tf.float32, shape=[None, 1])
+        x = tf.compat.v1.placeholder(tf.float32, shape=[None, self.feat_num])
+        y = tf.compat.v1.placeholder(tf.float32, shape=[None, 1])
         x_inp = tf.reshape(x, [1, self.feat_num])
 
         layers_dict = dict()
@@ -158,37 +157,38 @@ class Nnet:
 
         layer_out = layers_dict['layer_' + str(self.layers_num+1)]
         mse = tf.reduce_mean(tf.compat.v2.losses.mean_squared_error(y, layer_out))
-        lr_placeholder = tf.placeholder(tf.float32, [], name='learning_rate')
-        train_step = tf.train.GradientDescentOptimizer(lr_placeholder).minimize(mse)
+        lr_placeholder = tf.compat.v1.placeholder(tf.float32, [], name='learning_rate')
+        train_step = tf.compat.v1.train.GradientDescentOptimizer(lr_placeholder).minimize(mse)
         correct_pred = tf.equal(layer_out, y)
         accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-        sess.run(tf.global_variables_initializer())
+        sess.run(tf.compat.v1.global_variables_initializer())
 
-        e_stored = 1
-        for e in range(self.epochs):
-            lr = self.lr_schedule(e)
-            print("-Processing epoch " + str(e+1) + '...')
-            for j in range(len(self.data_tr[:100])):
-                [train_accuracy] = sess.run([accuracy],
-                                            feed_dict={x: self.data_tr[j].reshape(1, 12),
-                                                       y: self.labels_tr[j].reshape(1, 1),
-                                                       lr_placeholder: lr
-                                                       }
-                                            )
-                if e_stored != e:
-                    print('\taccuracy: ' + str(train_accuracy))
-                sess.run(train_step,
-                         feed_dict={x: self.data_tr[j].reshape(1, 12),
-                                    y: self.labels_tr[j].reshape(1, 1),
-                                    lr_placeholder: lr
-                                    }
-                         )
-                e_stored = e
-            if e == self.epochs - 1:
-                tf.summary.histogram('input', layers_dict['layer_1'])
-                for l in range(self.layers_num):
-                    lname = 'layer_' + str(l+1)
-                    tf.summary.histogram(lname, layers_dict[lname])
+        if start_train:
+            e_stored = 1
+            for e in range(self.epochs):
+                lr = self.lr_schedule(e)
+                print("-Processing epoch " + str(e+1) + '/' + str(self.epochs) + '...')
+                for j in range(len(self.data_tr)):
+                    [train_accuracy] = sess.run([accuracy],
+                                                feed_dict={x: self.data_tr[j].reshape(1, 12),
+                                                           y: self.labels_tr[j].reshape(1, 1),
+                                                           lr_placeholder: lr
+                                                           }
+                                                )
+                    if e_stored != e:
+                        print('\taccuracy: ' + str(train_accuracy))
+                    sess.run(train_step,
+                             feed_dict={x: self.data_tr[j].reshape(1, 12),
+                                        y: self.labels_tr[j].reshape(1, 1),
+                                        lr_placeholder: lr
+                                        }
+                             )
+                    e_stored = e
+                if e == self.epochs - 1:
+                    tf.compat.v1.summary.histogram('input', layers_dict['layer_1'])
+                    for l in range(self.layers_num):
+                        lname = 'layer_' + str(l+1)
+                        tf.compat.v1.summary.histogram(lname, layers_dict[lname])
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
@@ -203,7 +203,7 @@ class Nnet:
         if epoch > epochs * 0.9:
             learning_rate = 0.007
 
-        tf.summary.scalar('learning rate', learning_rate)
+        tf.compat.v1.summary.scalar('learning rate', learning_rate)
         return learning_rate
 
     def train(self):

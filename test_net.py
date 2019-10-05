@@ -17,9 +17,9 @@ query = pd.read_csv(path_qr, sep=';')
 query_names = query.Name
 query = query.drop(['Name'], axis=1).fillna(0)
 
-nnet = Nnet(data_cd=coding, data_nc=noncoding, data_qr=query, layers_num=7, epochs=20)
+nnet = Nnet(data_cd=coding, data_nc=noncoding, data_qr=query, layers_num=7, epochs=200)
 nnet.preprocessing()
-#nnet.model_by_layers()
+# nnet.model_by_layers()
 nnet.set_model()
 nnet.train()
 labels_out = nnet.predict()
