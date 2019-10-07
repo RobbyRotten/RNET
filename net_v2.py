@@ -25,6 +25,7 @@ class Nnet:
         self.layers_num = layers_num - 2
         self.epochs = epochs
         self.path = model if model is not None else model
+        self.out = None
 
         # Normalization constants
         self.maximums = [69.14414414414415,
@@ -121,13 +122,20 @@ class Nnet:
                            metrics=['accuracy']                               # [tf.keras.metrics.mean_absolute_error]
                            )
 
-    def model_by_layers(self, start_train=True):
+    def model_by_layers(self, start_train=True, predict=True):
         def layer(inp, chan_in, chan_out, name='FC'):
             with tf.name_scope(name):
                 w = tf.Variable(tf.random.truncated_normal([chan_in, chan_out], stddev=0.1), name='W')
                 b = tf.Variable(tf.constant(0.1, shape=[1, chan_out]), name='B')
                 act = tf.nn.sigmoid(tf.matmul(inp, w) + b)
+                tf.compat.v1.summary.histogram('biases', b)
+                tf.compat.v1.summary.histogram('weights', w)
                 return act
+        try:
+            os.mkdir('tensorboard')
+        except FileExistsError:
+            shutil.rmtree('tensorboard')
+            os.mkdir('tensorboard')
 
         config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=2,
                                           inter_op_parallelism_threads=2,
@@ -135,6 +143,9 @@ class Nnet:
                                           device_count={'CPU': 2})
 
         sess = tf.compat.v1.Session(config=config)
+        merged_summary = tf.compat.v1.summary.merge_all()
+        writer = tf.compat.v1.summary.FileWriter('tensorboard')
+        writer.add_graph(sess.graph)
 
         os.environ["OMP_NUM_THREADS"] = "2"
         os.environ["KMP_BLOCKTIME"] = "30"
@@ -155,40 +166,72 @@ class Nnet:
         layers_dict['layer_' + str(self.layers_num+2)] = layer(layers_dict['layer_' + str(self.layers_num+1)],
                                                                100, 1)
 
-        layer_out = layers_dict['layer_' + str(self.layers_num+1)]
+        layer_out = layers_dict['layer_' + str(self.layers_num+2)]
         mse = tf.reduce_mean(tf.compat.v2.losses.mean_squared_error(y, layer_out))
         lr_placeholder = tf.compat.v1.placeholder(tf.float32, [], name='learning_rate')
         train_step = tf.compat.v1.train.GradientDescentOptimizer(lr_placeholder).minimize(mse)
-        correct_pred = tf.equal(layer_out, y)
-        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        weight_initializer = tf.contrib.layers.variance_scaling_initializer(factor=1.0,
+                                                                            mode='FAN_AVG',
+                                                                            uniform=True,
+                                                                            seed=0)
+        bias_initializer = tf.initializers.constant(0.1)
+        # correct_pred = tf.equal(layer_out, y)
+        # accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
         sess.run(tf.compat.v1.global_variables_initializer())
+
+        data = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
+        # print(data.shape, self.feat_num)
+        # dtr = data[:, :self.feat_num]
 
         if start_train:
             e_stored = 1
             for e in range(self.epochs):
                 lr = self.lr_schedule(e)
                 print("-Processing epoch " + str(e+1) + '/' + str(self.epochs) + '...')
-                for j in range(len(self.data_tr)):
-                    [train_accuracy] = sess.run([accuracy],
-                                                feed_dict={x: self.data_tr[j].reshape(1, 12),
-                                                           y: self.labels_tr[j].reshape(1, 1),
-                                                           lr_placeholder: lr
-                                                           }
-                                                )
-                    if e_stored != e:
-                        print('\taccuracy: ' + str(train_accuracy))
-                    sess.run(train_step,
-                             feed_dict={x: self.data_tr[j].reshape(1, 12),
-                                        y: self.labels_tr[j].reshape(1, 1),
-                                        lr_placeholder: lr
-                                        }
-                             )
-                    e_stored = e
-                if e == self.epochs - 1:
-                    tf.compat.v1.summary.histogram('input', layers_dict['layer_1'])
-                    for l in range(self.layers_num):
-                        lname = 'layer_' + str(l+1)
-                        tf.compat.v1.summary.histogram(lname, layers_dict[lname])
+                batches = Nnet.get_batches(data, 100)
+                for batch in batches:
+                    for j in range(len(batch)):
+                        [train_accuracy] = sess.run([mse],
+                                                    feed_dict={x: batch[j, :self.feat_num].reshape(1, 12),
+                                                               y: batch[j, self.feat_num].reshape(1, 1),
+                                                               lr_placeholder: lr
+                                                               }
+                                                    )
+                        if e_stored != e:
+                            print('\tmean squared error: ' + str(train_accuracy))
+                            # if e % 500 == 0:
+                            #    s = sess.run(merged_summary,
+                            #                 feed_dict={x: batch[j, :self.feat_num].reshape(1, 12),
+                            #                            y: batch[j, self.feat_num].reshape(1, 1),
+                            #                            lr_placeholder: lr
+                            #                            }
+                            #                 )
+                            #    writer.add_summary(s, e)
+                        sess.run([train_step],
+                                 feed_dict={x: batch[j, :self.feat_num].reshape(1, 12),
+                                            y: batch[j, self.feat_num].reshape(1, 1),
+                                            lr_placeholder: lr
+                                            }
+                                 )
+                        e_stored = e
+
+        """
+        if e == self.epochs - 1:
+            tf.compat.v1.summary.histogram('input', layers_dict['layer_1'])
+            for l in range(self.layers_num):
+                lname = 'layer_' + str(l+1)
+                tf.compat.v1.summary.histogram(lname, layers_dict[lname])
+        """
+
+        out = []
+        if predict:
+            for l in range(len(self.data_qr)):
+                pred = sess.run([layer_out],
+                                feed_dict={x: self.data_qr[l].reshape(1, 12)}
+                                )
+                out.append(pred[0])
+            print(out)
+        self.out = out
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
@@ -209,7 +252,7 @@ class Nnet:
     def train(self):
         lr_callback = tf.keras.callbacks.LearningRateScheduler(self.lr_schedule)
         early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss',
-                                                      min_delta=1e-06,
+                                                      min_delta=0,
                                                       patience=int(self.epochs * 0.1),
                                                       restore_best_weights=True
                                                       )
@@ -247,6 +290,17 @@ class Nnet:
         labels_pr = self.model.predict(self.data_qr)
         labels_out = list(label[0] for label in labels_pr)
         return labels_out
+
+    @classmethod
+    def get_batches(cls, arr, size):
+        np.random.shuffle(arr)
+        divider = int(len(arr) / size)
+        last_ind = divider * size
+        batches = np.vsplit(arr[:last_ind], divider)
+        last_batch = arr[last_ind:]
+        if len(last_batch) != 0:
+            batches.append(last_batch)
+        return batches
 
     @classmethod
     def crossval_fasta(cls, fasta_cd, fasta_nc):
