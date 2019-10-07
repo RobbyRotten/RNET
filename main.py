@@ -8,6 +8,7 @@ from net_v2 import Nnet
 
 def main():
     save = False
+    threads = 1
     args = sys.argv
     if '-h' in args or '--help' in args:
         print('\
@@ -16,22 +17,26 @@ def main():
               ' -ex -tr -pr -cd <coding_rna.fasta>\n\
                             -nc <noncoding_rna.fasta> \n\
                             -qr <query_rna.fasta>\n\
-                            -sv flag if you want to save feature tables\n\n\
+                            -sv flag if you want to save feature tables\n\
+                            -th number of threads (1 by default)\n\n\
 -Usage for model training and prediction:' +
               '\n\t' + args[0] +
               ' -tr -pr -cd <coding_features.csv> <coding_rscu.csv> <coding_hex_freq.csv> \n\
                         -nc <noncoding_features.csv> <coding_rscu.csv> <coding_hex_freq.csv> \n\
                         -qr <query_rna.fasta>\n\
-                        -sv flag if you want to save feature tables\n\n\
+                        -sv flag if you want to save feature tables\n\
+                        -th number of threads (1 by default)\n\n\
 -Usage for prediction with a trained model:' +
               '\n\t' + args[0] +
               ' -pr -md <model_name>, "model/model" by default\n\
                     -qr <query_rna.fasta>\n\
-                    -sv flag if you want to save feature tables\n\n\
+                    -sv flag if you want to save feature tables\n\
+                    -th number of threads (1 by default)\n\n\
 -Usage for 10-fold cross-validation:' +
               '\n\t' + args[0] +
               ' -cv -cd <coding_rna.fasta>\n\
-                    -nc <noncoding_rna.fasta> \n')
+                    -nc <noncoding_rna.fasta> \n\
+                    -th number of threads (1 by default)\n')
         exit(0)
 
     # Training features extraction, training and prediction
@@ -39,6 +44,8 @@ def main():
          '-cd' in args and '-nc' in args and '-qr' in args:
         if '-sv' in args:
             save = True
+        if '-tn' in args:
+            threads = args[args.index('-tn') + 1]
         cd_file = args[args.index('-cd') + 1]
         nc_file = args[args.index('-nc') + 1]
         qr_file = args[args.index('-qr') + 1]
@@ -96,7 +103,9 @@ def main():
                         data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=20000)
+                        epochs=20000,
+                        threads=threads
+                        )
             del cd_feat, nc_feat, qr_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
             nnet.set_model()
@@ -119,6 +128,8 @@ def main():
                            '-nc' in args and '-qr' in args:
         if '-sv' in args:
             save = True
+        if '-tn' in args:
+            threads = args[args.index('-tn') + 1]
         cd_file_f = args[args.index('-cd') + 1]
         cd_file_u = args[args.index('-cd') + 2]
         cd_file_h = args[args.index('-cd') + 3]
@@ -169,7 +180,9 @@ def main():
                         data_nc=nc_feat.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=10)
+                        epochs=10,
+                        threads=threads
+                        )
             del qr_feat, nc_feat, cd_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
             nnet.set_model()
@@ -192,6 +205,8 @@ def main():
          '-cd' in args and '-nc' in args:
         if '-sv' in args:
             save = True
+        if '-tn' in args:
+            threads = args[args.index('-tn') + 1]
         qr_file = args[args.index('-qr') + 1]
         model = args[args.index('-qr') + 1]
         cd_file_h = args[args.index('-cd') + 1]
@@ -227,7 +242,9 @@ def main():
             nnet = Nnet(data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
                         layers_num=7,
                         epochs=10000,
-                        model=model)
+                        model=model,
+                        threads=threads
+                        )
             nnet.preprocessing()
             nnet.set_model()
             nnet.load_model()
@@ -259,12 +276,14 @@ def main():
 
     # 10-fold cross-validation
     elif '-cv' in args and '-cd' in args and '-nc'in args:
+        if '-tn' in args:
+            threads = args[args.index('-tn') + 1]
         cd_file = args[args.index('-cd') + 1]
         nc_file = args[args.index('-nc') + 1]
         if '.fasta' in cd_file and '.fasta' in nc_file and \
                 isfile(cd_file) and isfile(nc_file):
 
-            accurs = Nnet.crossval_fasta(cd_file, nc_file)
+            accurs = Nnet.crossval_fasta(cd_file, nc_file, threads=threads)
             with open('accuracy.txt', 'w') as f_obj:
                 f_obj.write(str(accurs) + '\n' + str(sum(accurs)/len(accurs)))
             exit(0)

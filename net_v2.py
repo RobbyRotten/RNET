@@ -12,7 +12,15 @@ from fasta_parser import Parser
 
 class Nnet:
 
-    def __init__(self, data_cd=None, data_nc=None, data_qr=None, layers_num=7, epochs=10000, model=None):
+    def __init__(self,
+                 data_cd=None,
+                 data_nc=None,
+                 data_qr=None,
+                 layers_num=7,
+                 epochs=10000,
+                 model=None,
+                 threads=1
+                 ):
         self.data_cd = data_cd.values if data_cd is not None else [0]
         self.data_nc = data_nc.values if data_nc is not None else [0]
         self.data_qr = data_qr.values if data_qr is not None else [0]
@@ -26,6 +34,7 @@ class Nnet:
         self.epochs = epochs
         self.path = model if model is not None else model
         self.out = None
+        self.threads = threads
 
         # Normalization constants
         self.maximums = [69.14414414414415,
@@ -81,20 +90,18 @@ class Nnet:
             os.mkdir('tensorboard')
         os.mkdir('tensorboard/metrics')
 
-        # ----------- to check--------------------------------
-        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=2,
-                                          inter_op_parallelism_threads=2,
+        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=self.threads,
+                                          inter_op_parallelism_threads=self.threads,
                                           allow_soft_placement=True,
-                                          device_count={'CPU': 2})
+                                          device_count={'CPU': self.threads})
 
         sess = tf.compat.v1.Session(config=config)
         tf.compat.v1.keras.backend.set_session(sess)
 
-        os.environ["OMP_NUM_THREADS"] = "2"
+        os.environ["OMP_NUM_THREADS"] = str(self.threads)
         os.environ["KMP_BLOCKTIME"] = "30"
         os.environ["KMP_SETTINGS"] = "1"
         os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
-        # ------------------------------------------------------
 
         file_writer = tf.compat.v1.summary.FileWriter("tensorboard/metrics", sess.graph, session=sess)
         # file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
@@ -137,17 +144,17 @@ class Nnet:
             shutil.rmtree('tensorboard')
             os.mkdir('tensorboard')
 
-        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=2,
-                                          inter_op_parallelism_threads=2,
+        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=self.threads,
+                                          inter_op_parallelism_threads=self.threads,
                                           allow_soft_placement=True,
-                                          device_count={'CPU': 2})
+                                          device_count={'CPU': self.threads})
 
         sess = tf.compat.v1.Session(config=config)
         merged_summary = tf.compat.v1.summary.merge_all()
         writer = tf.compat.v1.summary.FileWriter('tensorboard')
         writer.add_graph(sess.graph)
 
-        os.environ["OMP_NUM_THREADS"] = "2"
+        os.environ["OMP_NUM_THREADS"] = str(self.threads)
         os.environ["KMP_BLOCKTIME"] = "30"
         os.environ["KMP_SETTINGS"] = "1"
         os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
@@ -230,7 +237,6 @@ class Nnet:
                                 feed_dict={x: self.data_qr[l].reshape(1, 12)}
                                 )
                 out.append(pred[0])
-            print(out)
         self.out = out
 
     def lr_schedule(self, epoch):
@@ -303,7 +309,7 @@ class Nnet:
         return batches
 
     @classmethod
-    def crossval_fasta(cls, fasta_cd, fasta_nc):
+    def crossval_fasta(cls, fasta_cd, fasta_nc, threads=1):
         accurs = []
         try:
             os.mkdir('crossval')
@@ -444,7 +450,9 @@ class Nnet:
                         data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=10)
+                        epochs=10,
+                        threads=threads
+                        )
             del cd_feat, nc_feat, qr_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
             nnet.set_model()
