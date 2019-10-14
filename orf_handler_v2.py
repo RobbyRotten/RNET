@@ -105,7 +105,7 @@ class ORFHandler:
                         rs.append(rscu * math.log2(rscu))
                     else:
                         rs.append(0)
-                #entr = - weight * sum([rscu * math.log2(rscu) for rscu in rscus])
+                # entr = - weight * sum([rscu * math.log2(rscu) for rscu in rscus])
                 entr = - weight * sum(rs)
                 cod_deg = math.log2(len(rscus))
                 rel_entr = entr / cod_deg

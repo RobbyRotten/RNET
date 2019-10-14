@@ -283,7 +283,7 @@ def main():
         if '.fasta' in cd_file and '.fasta' in nc_file and \
                 isfile(cd_file) and isfile(nc_file):
 
-            accurs = Nnet.crossval_fasta(cd_file, nc_file, threads=threads)
+            accurs = Nnet.crossval_csv(cd_file, nc_file, threads=threads)
             with open('accuracy.txt', 'w') as f_obj:
                 f_obj.write(str(accurs) + '\n' + str(sum(accurs)/len(accurs)))
             exit(0)

@@ -309,6 +309,136 @@ class Nnet:
         return batches
 
     @classmethod
+    def crossval_csv(cls, fasta_cd, fasta_nc, threads=1):
+        accurs = []
+        try:
+            os.mkdir('crossval')
+        except FileExistsError:
+            shutil.rmtree('crossval')
+            os.mkdir('crossval')
+
+        # Parsing ref coding file
+        parser_cd = Parser(fasta_cd)
+        parser_cd.parse()
+        cd_feat = parser_cd.gen_feat_tab()
+        cd_rscu = parser_cd.rscu_tab(save=False)
+        # cd_hex_freq = parser_cd.gen_hex_tab()
+        # hex_in_cd = parser_cd.count_hex()
+
+        # Parsing ref noncoding file
+        parser_nc = Parser(fasta_nc)
+        parser_nc.parse()
+        nc_feat = parser_nc.gen_feat_tab()
+        nc_rscu = parser_nc.rscu_tab(save=False)
+        # nc_hex_freq = parser_nc.gen_hex_tab()
+        # hex_in_nc = parser_nc.count_hex()
+
+        for n in range(1, 11):
+            locdir = 'crossval/fold_' + str(n) + '/'
+            os.mkdir(locdir)
+            print('-Splitting coding file ' + str(n) + '/10...')
+
+            # forming cd files
+            used_cd, used_nc = [], []
+            test_len_cd = int(len(cd_feat) * 0.1)
+            test_records_cd, train_records_cd = [], []
+            nums_cd = [m for m in range(len(cd_feat))]
+            test_nums_cd, train_nums_cd = [], []
+            while len(test_nums_cd) < test_len_cd:
+                ind = nums_cd.pop(np.random.randint(0, len(nums_cd)))
+                if ind not in used_cd and ind not in test_nums_cd:
+                    test_nums_cd.append(ind)
+                    used_cd.append(ind)
+                if len(nums_cd) == 0:
+                    break
+            for k in range(len(cd_feat)):
+                if k in test_nums_cd:
+                    test_records_cd.append(cd_feat.iloc[k])
+                else:
+                    train_records_cd.append(cd_feat.iloc[k])
+
+            test_cd_out = pd.concat(test_records_cd, axis=1).T
+            train_cd_out = pd.concat(train_records_cd, axis=1).T
+            del test_records_cd, train_records_cd
+            train_cd_out.to_csv(locdir + 'train.csv', sep=';')
+
+            # forming cd files
+            used_cd, used_nc = [], []
+            test_len_cd = int(len(cd_feat) * 0.1)
+            test_records_cd, train_records_cd = [], []
+            nums_cd = [m for m in range(len(cd_feat))]
+            test_nums_cd, train_nums_cd = [], []
+            while len(test_nums_cd) < test_len_cd:
+                ind = nums_cd.pop(np.random.randint(0, len(nums_cd)))
+                if ind not in used_cd and ind not in test_nums_cd:
+                    test_nums_cd.append(ind)
+                    used_cd.append(ind)
+                if len(nums_cd) == 0:
+                    break
+            for k in range(len(cd_feat)):
+                if k in test_nums_cd:
+                    test_records_cd.append(cd_feat.iloc[k])
+                else:
+                    train_records_cd.append(cd_feat.iloc[k])
+
+            test_cd_out = pd.concat(test_records_cd, axis=1).T
+            train_cd_out = pd.concat(train_records_cd, axis=1).T
+            del test_records_cd, train_records_cd
+            train_cd_out.to_csv(locdir + 'train_cd.csv', sep=';')
+
+            # forming nc files
+            test_len_nc = int(len(nc_feat) * 0.1)
+            test_records_nc, train_records_nc = [], []
+            nums_nc = [m for m in range(len(nc_feat))]
+            test_nums_nc, train_nums_nc = [], []
+            while len(test_nums_nc) < test_len_nc:
+                ind = nums_nc.pop(np.random.randint(0, len(nums_nc)))
+                if ind not in used_nc and ind not in test_nums_nc:
+                    test_nums_nc.append(ind)
+                    used_nc.append(ind)
+                if len(nums_nc) == 0:
+                    break
+            for k in range(len(nc_feat)):
+                if k in test_nums_nc:
+                    test_records_nc.append(nc_feat.iloc[k])
+                else:
+                    train_records_nc.append(nc_feat.iloc[k])
+
+            test_nc_out = pd.concat(test_records_nc, axis=1).T
+            train_nc_out = pd.concat(train_records_nc, axis=1).T
+            del test_records_nc, train_records_nc
+            train_nc_out.to_csv(locdir + 'train_nc.csv', sep=';')
+
+            # merding test files
+            test_out = pd.concat([test_cd_out, test_nc_out], axis=0, ignore_index=True)
+            del test_nc_out, test_cd_out
+            test_out.to_csv(locdir + 'test.csv')
+            query_names = test_out['Name']
+
+            nnet = Nnet(data_cd=train_cd_out.drop(['Name'], axis=1).fillna(0),
+                        data_nc=train_nc_out.drop(['Name'], axis=1).fillna(0),
+                        data_qr=test_out.drop(['Name'], axis=1).fillna(0),
+                        layers_num=7,
+                        epochs=10,
+                        threads=threads
+                        )
+            del train_nc_out, train_cd_out, test_out
+            nnet.preprocessing()
+            nnet.set_model()
+            nnet.train()
+            labels_out = nnet.predict()
+            del nnet
+
+            res = ''
+            for l in range(len(labels_out)):
+                res += query_names[l] + ' ' + str(labels_out[l]) + '\n'
+            with open(locdir + "prediction.txt", 'w') as f_obj:
+                f_obj.write(res)
+            del res
+            accurs.append(Nnet.accuracy(locdir + "prediction.txt", 'Pp', 'CNT'))
+        return accurs
+
+    @classmethod
     def crossval_fasta(cls, fasta_cd, fasta_nc, threads=1):
         accurs = []
         try:
