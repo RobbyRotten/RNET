@@ -83,12 +83,10 @@ class Nnet:
         return normalized
 
     def set_model(self):
-        try:
-            os.mkdir('tensorboard')
-        except FileExistsError:
-            shutil.rmtree('tensorboard')
-            os.mkdir('tensorboard')
-        os.mkdir('tensorboard/metrics')
+        if os.path.isdir('tensorboard1'):
+            shutil.rmtree('tensorboard1', ignore_errors=True)
+        os.mkdir('tensorboard1')
+        os.mkdir('tensorboard1/metrics')
 
         config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=self.threads,
                                           inter_op_parallelism_threads=self.threads,
@@ -103,7 +101,7 @@ class Nnet:
         os.environ["KMP_SETTINGS"] = "1"
         os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
 
-        file_writer = tf.compat.v1.summary.FileWriter("tensorboard/metrics", sess.graph, session=sess)
+        file_writer = tf.compat.v1.summary.FileWriter("tensorboard1/metrics", sess.graph, session=sess)
         # file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
         # file_writer.set_as_default()
         file_writer.add_run_metadata(tf.compat.v1.RunMetadata(), tag='run meta')
@@ -138,11 +136,10 @@ class Nnet:
                 tf.compat.v1.summary.histogram('biases', b)
                 tf.compat.v1.summary.histogram('weights', w)
                 return act
-        try:
-            os.mkdir('tensorboard')
-        except FileExistsError:
-            shutil.rmtree('tensorboard')
-            os.mkdir('tensorboard')
+
+        if os.path.isdir('tensorboard'):
+            shutil.rmtree('tensorboard', ignore_errors=True)
+        os.mkdir('tensorboard')
 
         config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=self.threads,
                                           inter_op_parallelism_threads=self.threads,
@@ -185,7 +182,6 @@ class Nnet:
         # correct_pred = tf.equal(layer_out, y)
         # accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
         sess.run(tf.compat.v1.global_variables_initializer())
-
         data = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
         # print(data.shape, self.feat_num)
         # dtr = data[:, :self.feat_num]
@@ -262,7 +258,7 @@ class Nnet:
                                                       patience=int(self.epochs * 0.1),
                                                       restore_best_weights=True
                                                       )
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard',
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard1',
                                                               histogram_freq=1,
                                                               write_grads=True
                                                               )
@@ -272,8 +268,9 @@ class Nnet:
                        epochs=self.epochs,
                        batch_size=100,
                        callbacks=[tensorboard_callback,
-                                  lr_callback,
-                                  early_stop]
+                                  lr_callback
+                                  # early_stop
+                                  ]
                        )
 
     def update_constants(self):
@@ -311,11 +308,9 @@ class Nnet:
     @classmethod
     def crossval_csv(cls, fasta_cd, fasta_nc, threads=1):
         accurs = []
-        try:
-            os.mkdir('crossval')
-        except FileExistsError:
-            shutil.rmtree('crossval')
-            os.mkdir('crossval')
+        if os.path.isdir('crossval'):
+            shutil.rmtree('crossval', ignore_errors=True)
+        os.mkdir('crossval')
 
         # Parsing ref coding file
         parser_cd = Parser(fasta_cd)
@@ -333,37 +328,13 @@ class Nnet:
         # nc_hex_freq = parser_nc.gen_hex_tab()
         # hex_in_nc = parser_nc.count_hex()
 
+        used_cd, used_nc = [], []
         for n in range(1, 11):
+            print('-Processing folds ' + str(n) + '/10...')
             locdir = 'crossval/fold_' + str(n) + '/'
             os.mkdir(locdir)
-            print('-Splitting coding file ' + str(n) + '/10...')
 
             # forming cd files
-            used_cd, used_nc = [], []
-            test_len_cd = int(len(cd_feat) * 0.1)
-            test_records_cd, train_records_cd = [], []
-            nums_cd = [m for m in range(len(cd_feat))]
-            test_nums_cd, train_nums_cd = [], []
-            while len(test_nums_cd) < test_len_cd:
-                ind = nums_cd.pop(np.random.randint(0, len(nums_cd)))
-                if ind not in used_cd and ind not in test_nums_cd:
-                    test_nums_cd.append(ind)
-                    used_cd.append(ind)
-                if len(nums_cd) == 0:
-                    break
-            for k in range(len(cd_feat)):
-                if k in test_nums_cd:
-                    test_records_cd.append(cd_feat.iloc[k])
-                else:
-                    train_records_cd.append(cd_feat.iloc[k])
-
-            test_cd_out = pd.concat(test_records_cd, axis=1).T
-            train_cd_out = pd.concat(train_records_cd, axis=1).T
-            del test_records_cd, train_records_cd
-            train_cd_out.to_csv(locdir + 'train.csv', sep=';')
-
-            # forming cd files
-            used_cd, used_nc = [], []
             test_len_cd = int(len(cd_feat) * 0.1)
             test_records_cd, train_records_cd = [], []
             nums_cd = [m for m in range(len(cd_feat))]
@@ -419,7 +390,7 @@ class Nnet:
                         data_nc=train_nc_out.drop(['Name'], axis=1).fillna(0),
                         data_qr=test_out.drop(['Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=10,
+                        epochs=17000,
                         threads=threads
                         )
             del train_nc_out, train_cd_out, test_out
@@ -441,11 +412,10 @@ class Nnet:
     @classmethod
     def crossval_fasta(cls, fasta_cd, fasta_nc, threads=1):
         accurs = []
-        try:
-            os.mkdir('crossval')
-        except FileExistsError:
-            shutil.rmtree('crossval')
-            os.mkdir('crossval')
+        if os.path.isdir('crossval'):
+            shutil.rmtree('crossval', ignore_errors=True)
+        os.mkdir('crossval')
+
         records_cd, records_nc = [], []
 
         # forming cd files
