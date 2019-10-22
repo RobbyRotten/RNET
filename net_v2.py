@@ -330,16 +330,18 @@ class Nnet:
 
         used_cd, used_nc = [], []
         for n in range(1, 11):
-            print('-Processing folds ' + str(n) + '/10...')
+            print('-Splitting files ' + str(n) + '/10...')
             locdir = 'crossval/fold_' + str(n) + '/'
             os.mkdir(locdir)
+            len_cd = len(cd_feat)
+            len_nc = len(nc_feat)
+            test_len = int(len_nc * 0.1) if len_nc <= len_cd else int(len_cd * 0.1)
 
             # forming cd files
-            test_len_cd = int(len(cd_feat) * 0.1)
             test_records_cd, train_records_cd = [], []
             nums_cd = [m for m in range(len(cd_feat))]
             test_nums_cd, train_nums_cd = [], []
-            while len(test_nums_cd) < test_len_cd:
+            while len(test_nums_cd) < test_len:
                 ind = nums_cd.pop(np.random.randint(0, len(nums_cd)))
                 if ind not in used_cd and ind not in test_nums_cd:
                     test_nums_cd.append(ind)
@@ -358,11 +360,10 @@ class Nnet:
             train_cd_out.to_csv(locdir + 'train_cd.csv', sep=';')
 
             # forming nc files
-            test_len_nc = int(len(nc_feat) * 0.1)
             test_records_nc, train_records_nc = [], []
             nums_nc = [m for m in range(len(nc_feat))]
             test_nums_nc, train_nums_nc = [], []
-            while len(test_nums_nc) < test_len_nc:
+            while len(test_nums_nc) < test_len:
                 ind = nums_nc.pop(np.random.randint(0, len(nums_nc)))
                 if ind not in used_nc and ind not in test_nums_nc:
                     test_nums_nc.append(ind)
@@ -383,17 +384,27 @@ class Nnet:
             # merding test files
             test_out = pd.concat([test_cd_out, test_nc_out], axis=0, ignore_index=True)
             del test_nc_out, test_cd_out
-            test_out.to_csv(locdir + 'test.csv')
-            query_names = test_out['Name']
+            test_out.to_csv(locdir + 'test.csv', sep=';')
+            del test_out, train_cd_out, train_nc_out
+        del used_cd, used_nc
 
-            nnet = Nnet(data_cd=train_cd_out.drop(['Name'], axis=1).fillna(0),
-                        data_nc=train_nc_out.drop(['Name'], axis=1).fillna(0),
-                        data_qr=test_out.drop(['Name'], axis=1).fillna(0),
+        for n in range(1, 11):
+            print('-Processing folds ' + str(n) + '/10...')
+            locdir = 'crossval/fold_' + str(n) + '/'
+
+            train_cd = pd.read_csv(locdir + 'train_cd.csv', sep=';')
+            train_nc = pd.read_csv(locdir + 'train_cd.csv', sep=';')
+            test = pd.read_csv(locdir + 'test.csv', sep=';')
+            query_names = test['Name']
+
+            nnet = Nnet(data_cd=train_cd.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
+                        data_nc=train_nc.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
+                        data_qr=test.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=17000,
+                        epochs=7,
                         threads=threads
                         )
-            del train_nc_out, train_cd_out, test_out
+            del train_nc, train_cd, test
             nnet.preprocessing()
             nnet.set_model()
             nnet.train()
