@@ -109,6 +109,12 @@ class Nnet:
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
 
+        self.data_cd, self.data_nc = None, None
+        self.labels_cd, self.labels_nc = None, None
+
+        self.data_tr = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
+        np.random.shuffle(self.data_tr)
+
         self.model = tf.keras.Sequential()
         self.model.add(layers.Dense(100, activation='sigmoid', input_shape=(self.feat_num, )))
         for n in range(self.layers_num):
@@ -124,7 +130,7 @@ class Nnet:
 
         self.model.compile(optimizer=tf.keras.optimizers.SGD(),
                            loss=tf.keras.losses.mean_squared_error,
-                           metrics=['accuracy']                               # [tf.keras.metrics.mean_absolute_error]
+                           metrics=[tf.keras.metrics.mean_absolute_error]
                            )
 
     def model_by_layers(self, start_train=True, predict=True):
@@ -159,6 +165,12 @@ class Nnet:
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
 
+        self.data_cd, self.data_nc = None, None
+        self.labels_cd, self.labels_nc = None, None
+
+        self.data_tr = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
+        np.random.shuffle(self.data_tr)
+
         x = tf.compat.v1.placeholder(tf.float32, shape=[None, self.feat_num])
         y = tf.compat.v1.placeholder(tf.float32, shape=[None, 1])
         x_inp = tf.reshape(x, [1, self.feat_num])
@@ -182,7 +194,7 @@ class Nnet:
         # correct_pred = tf.equal(layer_out, y)
         # accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
         sess.run(tf.compat.v1.global_variables_initializer())
-        data = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
+
         # print(data.shape, self.feat_num)
         # dtr = data[:, :self.feat_num]
 
@@ -191,11 +203,11 @@ class Nnet:
             for e in range(self.epochs):
                 lr = self.lr_schedule(e)
                 print("-Processing epoch " + str(e+1) + '/' + str(self.epochs) + '...')
-                batches = Nnet.get_batches(data, 100)
+                batches = Nnet.get_batches(self.data_tr, 100)
                 for batch in batches:
                     for j in range(len(batch)):
                         [train_accuracy] = sess.run([mse],
-                                                    feed_dict={x: batch[j, :self.feat_num].reshape(1, 12),
+                                                    feed_dict={x: batch[j, :self.feat_num].reshape(1, self.feat_num),
                                                                y: batch[j, self.feat_num].reshape(1, 1),
                                                                lr_placeholder: lr
                                                                }
@@ -211,7 +223,7 @@ class Nnet:
                             #                 )
                             #    writer.add_summary(s, e)
                         sess.run([train_step],
-                                 feed_dict={x: batch[j, :self.feat_num].reshape(1, 12),
+                                 feed_dict={x: batch[j, :self.feat_num].reshape(1, self.feat_num),
                                             y: batch[j, self.feat_num].reshape(1, 1),
                                             lr_placeholder: lr
                                             }
@@ -230,7 +242,7 @@ class Nnet:
         if predict:
             for l in range(len(self.data_qr)):
                 pred = sess.run([layer_out],
-                                feed_dict={x: self.data_qr[l].reshape(1, 12)}
+                                feed_dict={x: self.data_qr[l].reshape(1, self.feat_num)}
                                 )
                 out.append(pred[0])
         self.out = out
@@ -263,8 +275,8 @@ class Nnet:
                                                               write_grads=True
                                                               )
 
-        self.model.fit(self.data_tr,
-                       self.labels_tr,
+        self.model.fit(self.data_tr[:, :self.feat_num].reshape(len(self.data_tr), self.feat_num),
+                       self.data_tr[:, self.feat_num].reshape(len(self.data_tr), 1),
                        epochs=self.epochs,
                        batch_size=100,
                        callbacks=[tensorboard_callback,
@@ -416,7 +428,7 @@ class Nnet:
                 res += query_names[l] + ' ' + str(labels_out[l]) + '\n'
             with open(locdir + "prediction.txt", 'w') as f_obj:
                 f_obj.write(res)
-            del res
+            del res, query_names
             accurs.append(Nnet.accuracy(locdir + "prediction.txt", 'Pp', 'CNT'))
         return accurs
 
