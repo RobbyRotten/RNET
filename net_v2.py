@@ -65,6 +65,7 @@ class Nnet:
                       ]
 
     def preprocessing(self):
+        tf.compat.v1.disable_eager_execution()
         if self.data_cd is not None and self.data_nc is not None:
             self.data_cd = self.normalize(self.data_cd)
             self.data_nc = self.normalize(self.data_nc)
@@ -83,11 +84,6 @@ class Nnet:
         return normalized
 
     def set_model(self):
-        if os.path.isdir('tensorboard1'):
-            shutil.rmtree('tensorboard1', ignore_errors=True)
-        os.mkdir('tensorboard1')
-        os.mkdir('tensorboard1/metrics')
-
         config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=self.threads,
                                           inter_op_parallelism_threads=self.threads,
                                           allow_soft_placement=True,
@@ -100,11 +96,6 @@ class Nnet:
         os.environ["KMP_BLOCKTIME"] = "30"
         os.environ["KMP_SETTINGS"] = "1"
         os.environ["KMP_AFFINITY"] = "granularity=fine,verbose,compact,1,0"
-
-        file_writer = tf.compat.v1.summary.FileWriter("tensorboard1/metrics", sess.graph, session=sess)
-        # file_writer = tf.contrib.summary.create_file_writer("tensorboard/metrics")
-        # file_writer.set_as_default()
-        file_writer.add_run_metadata(tf.compat.v1.RunMetadata(), tag='run meta')
 
         self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
         self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
@@ -143,19 +134,12 @@ class Nnet:
                 tf.compat.v1.summary.histogram('weights', w)
                 return act
 
-        if os.path.isdir('tensorboard'):
-            shutil.rmtree('tensorboard', ignore_errors=True)
-        os.mkdir('tensorboard')
-
         config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=self.threads,
                                           inter_op_parallelism_threads=self.threads,
                                           allow_soft_placement=True,
                                           device_count={'CPU': self.threads})
 
         sess = tf.compat.v1.Session(config=config)
-        merged_summary = tf.compat.v1.summary.merge_all()
-        writer = tf.compat.v1.summary.FileWriter('tensorboard')
-        writer.add_graph(sess.graph)
 
         os.environ["OMP_NUM_THREADS"] = str(self.threads)
         os.environ["KMP_BLOCKTIME"] = "30"
@@ -214,14 +198,6 @@ class Nnet:
                                                     )
                         if e_stored != e:
                             print('\tmean squared error: ' + str(train_accuracy))
-                            # if e % 500 == 0:
-                            #    s = sess.run(merged_summary,
-                            #                 feed_dict={x: batch[j, :self.feat_num].reshape(1, 12),
-                            #                            y: batch[j, self.feat_num].reshape(1, 1),
-                            #                            lr_placeholder: lr
-                            #                            }
-                            #                 )
-                            #    writer.add_summary(s, e)
                         sess.run([train_step],
                                  feed_dict={x: batch[j, :self.feat_num].reshape(1, self.feat_num),
                                             y: batch[j, self.feat_num].reshape(1, 1),
@@ -229,14 +205,6 @@ class Nnet:
                                             }
                                  )
                         e_stored = e
-
-        """
-        if e == self.epochs - 1:
-            tf.compat.v1.summary.histogram('input', layers_dict['layer_1'])
-            for l in range(self.layers_num):
-                lname = 'layer_' + str(l+1)
-                tf.compat.v1.summary.histogram(lname, layers_dict[lname])
-        """
 
         out = []
         if predict:
@@ -265,22 +233,17 @@ class Nnet:
 
     def train(self):
         lr_callback = tf.keras.callbacks.LearningRateScheduler(self.lr_schedule)
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss',
-                                                      min_delta=0,
-                                                      patience=int(self.epochs * 0.1),
-                                                      restore_best_weights=True
-                                                      )
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='tensorboard1',
-                                                              histogram_freq=1,
-                                                              write_grads=True
-                                                              )
+        # early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss',
+        #                                              min_delta=0,
+        #                                              patience=int(self.epochs * 0.1),
+        #                                              restore_best_weights=True
+        #                                              )
 
         self.model.fit(self.data_tr[:, :self.feat_num].reshape(len(self.data_tr), self.feat_num),
                        self.data_tr[:, self.feat_num].reshape(len(self.data_tr), 1),
                        epochs=self.epochs,
                        batch_size=100,
-                       callbacks=[tensorboard_callback,
-                                  lr_callback
+                       callbacks=[lr_callback
                                   # early_stop
                                   ]
                        )
@@ -430,6 +393,7 @@ class Nnet:
                 f_obj.write(res)
             del res, query_names
             accurs.append(Nnet.accuracy(locdir + "prediction.txt", 'Pp', 'CNT'))
+        print(accurs)
         return accurs
 
     @classmethod
@@ -590,6 +554,7 @@ class Nnet:
                 f_obj.write(res)
             del res
             accurs.append(Nnet.accuracy(locdir + "prediction.txt", 'Pp', 'CNT'))
+        print(accurs)
         return accurs
 
     @classmethod

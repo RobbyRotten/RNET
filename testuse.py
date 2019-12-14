@@ -3,7 +3,7 @@ from fasta_parser import Parser
 
 
 def f_use():
-    filename = '../RNET1/test4/lncrnas4.fasta'
+    filename = '../RNET1/test4/lncrnas4.fasta'; print(filename)
     p = Parser(filename)
     p.parse()
     feat = p.gen_feat_tab()
@@ -11,7 +11,7 @@ def f_use():
     # print(feat)
     # print(rscu)
     # print(len(feat), len(rscu))
-    p.gen_hex_tab()
+    # p.gen_hex_tab()
 
 
 def seq_use():
