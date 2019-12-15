@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import math
 import numpy as np
@@ -17,8 +18,7 @@ class Nnet:
                  data_qr=None,
                  layers_num=7,
                  epochs=10000,
-                 model=None,
-                 threads=1
+                 model=None
                  ):
         self.data_cd = data_cd.values if data_cd is not None else [0]
         self.data_nc = data_nc.values if data_nc is not None else [0]
@@ -28,12 +28,11 @@ class Nnet:
         self.data_tr = None
         self.labels_tr = None
         self.model = None
-        self.feat_num = len(data_cd.columns) if data_cd is not None else [0]
+        self.feat_num = len(data_cd.columns) if data_cd is not None else 12
         self.layers_num = layers_num - 2
         self.epochs = epochs
         self.path = model if model is not None else model
         self.out = None
-        self.threads = threads
         self.activation = lambda x: scipy.special.expit(x)
 
         # Normalization constants
@@ -65,12 +64,20 @@ class Nnet:
                       ]
 
     def preprocessing(self):
-        tf.compat.v1.disable_eager_execution()
         if self.data_cd is not None and self.data_nc is not None:
             self.data_cd = self.normalize(self.data_cd)
             self.data_nc = self.normalize(self.data_nc)
         if self.data_qr is not None:
             self.data_qr = self.normalize(self.data_qr)
+
+        self.data_tr = np.concatenate((self.data_cd, self.data_nc), axis=0)
+        self.labels_tr = np.concatenate((self.labels_cd, self.labels_nc))
+
+        self.data_cd, self.data_nc = None, None
+        self.labels_cd, self.labels_nc = None, None
+
+        self.data_tr = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
+        np.random.shuffle(self.data_tr)
 
     def normalize(self, arr):
         columns = []
@@ -87,8 +94,7 @@ class Nnet:
         model_dic = dict()
         model_dic['layer_0'] = np.random.normal(0.0,
                                                 pow(100, -0.5),
-                                                # (100, self.feat_num)
-                                                (100, 12)
+                                                (100, self.feat_num)
                                                 )
         for n in range(1, self.layers_num + 1):
             model_dic['layer_' + str(n)] = np.random.normal(0.0,
@@ -102,29 +108,82 @@ class Nnet:
         self.model = model_dic
 
     def forward_pass(self, inp):
+        """returns net output
+           by layers
+        """
         forward_dic = dict()
         forward_dic['layer_0'] = self.activation(np.dot(self.model['layer_0'], inp))
         for n in range(1, self.layers_num + 1):
             forward_dic['layer_' + str(n)] = self.activation(np.dot(forward_dic['layer_' + str(n - 1)],
                                                                     self.model['layer_' + str(n)]))
-            # print('ok ', n)
         forward_dic['layer_'+str(self.layers_num+1)] = self.activation(np.dot(
                                                                        forward_dic['layer_'+str(self.layers_num)],
                                                                        self.model['layer_'+str(self.layers_num+1)]
                                                                        ))
         return forward_dic
 
-    def backward_pass(self, outp, target, forward_dic):
+    def backward_pass(self, outp, target):
+        """returns net errors
+           by layers
+        """
         backward_dic = dict()
-        backward_dic['layer_' + str(self.layers_num + 1)] = target - outp
+        # print(target - outp['layer_' + str(self.layers_num + 1)])
+        # print('\n', outp['layer_' + str(self.layers_num + 1)])
+        # exit(0)
+        backward_dic['layer_' + str(self.layers_num + 1)] = target - outp['layer_' + str(self.layers_num + 1)]
         for n in range(self.layers_num, -1, -1):
             backward_dic['layer_' + str(n)] = np.dot(self.model['layer_' + str(n + 1)],
                                                      backward_dic['layer_' + str(n + 1)])
-            # print([k for k in backward_dic.keys()], [v.shape for v in backward_dic.values()])
         return backward_dic
 
+    def update(self, outputs, errors, lr):
+        for n in range(self.layers_num + 1, 0, -1):
+            a = errors['layer_' + str(n)] * outputs['layer_' + str(n)] * (1 - outputs['layer_' + str(n)])
+            a = a.reshape(len(a), 1)
+            b = outputs['layer_' + str(n - 1)]
+            b = b.reshape(1, len(b))
+            self.model['layer_' + str(n)] += lr * np.dot(a, b).T
+
     def train(self):
-        pass
+        batches = Nnet.get_batches(self.data_tr, 100)
+        self.data_tr = None
+        for e in range(self.epochs):
+            print('\n-Processing epochs: {} of {}...'.format(e + 1, self.epochs))
+            lr = self.lr_schedule(e)
+            batch = batches.pop(np.random.randint(0, len(batches)))
+            n = 0
+            l = len(batch)
+            for m in range(l):
+                n += 1
+                done = int(50 * n / l)
+                sys.stdout.write("\r[%s%s] %s" % ('=' * done, ' ' * (50 - done),
+                                 str(n) + '/' + str(l) + ' ' + str(2 * done) + '% complete'))
+                sys.stdout.flush()
+                outputs = self.forward_pass(batch[m, :self.feat_num])
+                errors = self.backward_pass(outputs, batch[m, self.feat_num])
+                self.update(outputs, errors, lr)
+        print('\n-Training complete')
+
+    def train_all(self):
+        batches = Nnet.get_batches(self.data_tr, 100)
+        self.data_tr = None
+        for e in range(self.epochs):
+            print('-\nProcessing epochs: {} of {}...'.format(e + 1, self.epochs))
+            lr = self.lr_schedule(e)
+            for batch in batches:
+                n = 0
+                l = len(batch)
+                for m in range(l):
+                    n += 1
+                    done = int(50 * n / l)
+                    sys.stdout.write("\r[%s%s] %s" % ('=' * done, ' ' * (50 - done),
+                                     str(n) + '/' + str(l) + ' ' + str(2 * done) + '% complete'))
+                    sys.stdout.flush()
+                    print('\n')
+                    outputs = self.forward_pass(batch[m, :self.feat_num])
+                    errors = self.backward_pass(outputs, batch[m, self.feat_num])
+                    self.update(outputs, errors, lr)
+        print('\n-Training complete')
 
     def update_constants(self):
         pass
@@ -133,10 +192,20 @@ class Nnet:
         pass
 
     def save_model(self):
-        pass
+        if os.path.isdir('model'):
+            shutil.rmtree('model', ignore_errors=True)
+        os.mkdir('model')
+        print('-Saving model...')
+        for key, value in self.model.items():
+            np.save('model/' + key, value)
 
     def predict(self):
-        pass
+        predictions = []
+        print('-Predicting...')
+        for n in range(len(self.data_qr)):
+            pred = self.forward_pass(self.data_qr[n])
+            predictions.append(pred['layer_' + str(self.layers_num + 1)][0])
+        return predictions
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
