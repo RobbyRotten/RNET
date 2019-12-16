@@ -142,22 +142,22 @@ class Nnet:
             self.model['layer_' + str(n)] += lr * np.dot(a, b).T
 
     def train(self):
-        batches = Nnet.get_batches(self.data_tr, 100)
-        self.data_tr = None
+        # batches = Nnet.get_batches(self.data_tr, 100)
+        # self.data_tr = None
         for e in range(self.epochs):
             print('\n-Processing epochs: {} of {}...'.format(e + 1, self.epochs))
             lr = self.lr_schedule(e)
-            batch = batches.pop(np.random.randint(0, len(batches)))
+            # batch = batches[np.random.randint(0, len(batches) - 1)]
             n = 0
-            l = len(batch)
+            l = len(self.data_tr)
             for m in range(l):
                 n += 1
                 done = int(50 * n / l)
                 sys.stdout.write("\r[%s%s] %s" % ('=' * done, ' ' * (50 - done),
                                  str(n) + '/' + str(l) + ' ' + str(2 * done) + '% complete'))
                 sys.stdout.flush()
-                outputs = self.forward_pass(batch[m, :self.feat_num])
-                errors = self.backward_pass(outputs, batch[m, self.feat_num])
+                outputs = self.forward_pass(self.data_tr[m, :self.feat_num])
+                errors = self.backward_pass(outputs, self.data_tr[m, self.feat_num])
                 self.update(outputs, errors, lr)
         print('\n-Training complete')
 

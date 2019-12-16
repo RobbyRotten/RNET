@@ -26,5 +26,5 @@ labels_out = nnet.predict()
 res = ''
 for n in range(len(labels_out)):
     res += query_names[n] + ' ' + str(labels_out[n]) + '\n'
-with open("prediction.txt", 'w') as f_obj:
+with open("prediction_np.txt", 'w') as f_obj:
     f_obj.write(res)
