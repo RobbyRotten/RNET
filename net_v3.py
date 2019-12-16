@@ -28,7 +28,7 @@ class Nnet:
         self.data_tr = None
         self.labels_tr = None
         self.model = None
-        self.feat_num = len(data_cd.columns) if data_cd is not None else 12
+        self.feat_num = len(data_qr.columns) if data_qr is not None else len(data_cd.columns)
         self.layers_num = layers_num - 2
         self.epochs = epochs
         self.path = model if model is not None else model
@@ -127,9 +127,6 @@ class Nnet:
            by layers
         """
         backward_dic = dict()
-        # print(target - outp['layer_' + str(self.layers_num + 1)])
-        # print('\n', outp['layer_' + str(self.layers_num + 1)])
-        # exit(0)
         backward_dic['layer_' + str(self.layers_num + 1)] = target - outp['layer_' + str(self.layers_num + 1)]
         for n in range(self.layers_num, -1, -1):
             backward_dic['layer_' + str(n)] = np.dot(self.model['layer_' + str(n + 1)],
@@ -205,6 +202,7 @@ class Nnet:
         for n in range(len(self.data_qr)):
             pred = self.forward_pass(self.data_qr[n])
             predictions.append(pred['layer_' + str(self.layers_num + 1)][0])
+        print('-Complete')
         return predictions
 
     def lr_schedule(self, epoch):
