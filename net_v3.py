@@ -27,7 +27,8 @@ class Nnet:
         self.labels_nc = np.array([0.001 for n in range(len(self.data_nc))])
         self.data_tr = None
         self.labels_tr = None
-        self.model = None
+        self.model_w = None
+        self.model_b = None
         self.feat_num = len(data_qr.columns) if data_qr is not None else len(data_cd.columns)
         self.layers_num = layers_num - 2
         self.epochs = epochs
@@ -91,34 +92,48 @@ class Nnet:
         return normalized
 
     def set_model(self):
-        model_dic = dict()
-        model_dic['layer_0'] = np.random.normal(0.0,
-                                                pow(100, -0.5),
-                                                (100, self.feat_num)
-                                                )
+        """model weights & biases
+           initialization
+        """
+        weights = dict()
+        weights['layer_0'] = np.random.normal(0.0,
+                                              pow(self.feat_num, -0.5),
+                                              (100, self.feat_num)
+                                              )
         for n in range(1, self.layers_num + 1):
-            model_dic['layer_' + str(n)] = np.random.normal(0.0,
-                                                            pow(100, -0.5),
-                                                            (100, 100)
-                                                            )
-        model_dic['layer_' + str(self.layers_num + 1)] = np.random.normal(0.0,
-                                                                          pow(100, -0.5),
-                                                                          (100, 1)
-                                                                          )
-        self.model = model_dic
+            weights['layer_' + str(n)] = np.random.normal(0.0,
+                                                          pow(100, -0.5),
+                                                          (100, 100)
+                                                          )
+        weights['layer_' + str(self.layers_num + 1)] = np.random.normal(0.0,
+                                                                        pow(100, -0.5),
+                                                                        (100, 1)
+                                                                        )
+        self.model_w = weights
+
+        biases = dict()
+        biases['layer_0'] = np.zeros((100, self.feat_num)) + 0.01
+        for n in range(1, self.layers_num + 1):
+            biases['layer_' + str(n)] = np.zeros((100, 100)) + 0.01
+        biases['layer_' + str(self.layers_num + 1)] = np.zeros((100, 1)) + 0.01
+        self.model_b = biases
 
     def forward_pass(self, inp):
         """returns net output
            by layers
         """
         forward_dic = dict()
-        forward_dic['layer_0'] = self.activation(np.dot(self.model['layer_0'], inp))
+        forward_dic['layer_0'] = self.activation(np.dot(self.model_w['layer_0'] +
+                                                        self.model_b['layer_0'],
+                                                        inp))
         for n in range(1, self.layers_num + 1):
             forward_dic['layer_' + str(n)] = self.activation(np.dot(forward_dic['layer_' + str(n - 1)],
-                                                                    self.model['layer_' + str(n)]))
+                                                                    self.model_w['layer_' + str(n)] +
+                                                                    self.model_b['layer_' + str(n)]))
         forward_dic['layer_'+str(self.layers_num+1)] = self.activation(np.dot(
                                                                        forward_dic['layer_'+str(self.layers_num)],
-                                                                       self.model['layer_'+str(self.layers_num+1)]
+                                                                       self.model_w['layer_'+str(self.layers_num+1)] +
+                                                                       self.model_b['layer_'+str(self.layers_num + 1)]
                                                                        ))
         return forward_dic
 
@@ -129,7 +144,7 @@ class Nnet:
         backward_dic = dict()
         backward_dic['layer_' + str(self.layers_num + 1)] = target - outp['layer_' + str(self.layers_num + 1)]
         for n in range(self.layers_num, -1, -1):
-            backward_dic['layer_' + str(n)] = np.dot(self.model['layer_' + str(n + 1)],
+            backward_dic['layer_' + str(n)] = np.dot(self.model_w['layer_' + str(n + 1)],
                                                      backward_dic['layer_' + str(n + 1)])
         return backward_dic
 
@@ -139,7 +154,8 @@ class Nnet:
             a = a.reshape(len(a), 1)
             b = outputs['layer_' + str(n - 1)]
             b = b.reshape(1, len(b))
-            self.model['layer_' + str(n)] += lr * np.dot(a, b).T
+            self.model_w['layer_' + str(n)] += lr * np.dot(a, b).T
+            self.model_b['layer_' + str(n)] += errors['layer_' + str(n)]
 
     def train(self):
         # batches = Nnet.get_batches(self.data_tr, 100)
@@ -194,7 +210,7 @@ class Nnet:
             shutil.rmtree('model', ignore_errors=True)
         os.mkdir('model')
         print('-Saving model...')
-        for key, value in self.model.items():
+        for key, value in self.model_w.items():
             np.save('model/' + key, value)
 
     def predict(self):
