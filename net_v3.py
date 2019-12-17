@@ -77,7 +77,7 @@ class Nnet:
         self.labels_cd, self.labels_nc = None, None
 
         self.data_tr = np.hstack([self.data_tr, self.labels_tr.reshape(self.labels_tr.shape[0], 1)])
-        np.random.shuffle(self.data_tr)
+        # np.random.shuffle(self.data_tr)
 
     def normalize(self, arr):
         columns = []
@@ -145,6 +145,7 @@ class Nnet:
         # batches = Nnet.get_batches(self.data_tr, 100)
         # self.data_tr = None
         for e in range(self.epochs):
+            np.random.shuffle(self.data_tr)
             print('\n-Processing epochs: {} of {}...'.format(e + 1, self.epochs))
             lr = self.lr_schedule(e)
             # batch = batches[np.random.randint(0, len(batches) - 1)]
