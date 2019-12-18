@@ -112,10 +112,9 @@ class Nnet:
         self.model_w = weights
 
         biases = dict()
-        biases['layer_0'] = np.zeros((100, self.feat_num)) + 0.01
-        for n in range(1, self.layers_num + 1):
-            biases['layer_' + str(n)] = np.zeros((100, 100)) + 0.01
-        biases['layer_' + str(self.layers_num + 1)] = np.zeros((100, 1)) + 0.01
+        for n in range(self.layers_num + 1):
+            biases['layer_' + str(n)] = np.zeros((100,)) + 0.01
+        biases['layer_' + str(self.layers_num + 1)] = np.zeros((1,)) + 0.01
         self.model_b = biases
 
     def forward_pass(self, inp):
@@ -123,18 +122,18 @@ class Nnet:
            by layers
         """
         forward_dic = dict()
-        forward_dic['layer_0'] = self.activation(np.dot(self.model_w['layer_0'] +
-                                                        self.model_b['layer_0'],
-                                                        inp))
+        forward_dic['layer_0'] = self.activation(np.dot(self.model_w['layer_0'], inp) +
+                                                 self.model_b['layer_0'])
         for n in range(1, self.layers_num + 1):
             forward_dic['layer_' + str(n)] = self.activation(np.dot(forward_dic['layer_' + str(n - 1)],
-                                                                    self.model_w['layer_' + str(n)] +
-                                                                    self.model_b['layer_' + str(n)]))
+                                                             self.model_w['layer_' + str(n)]) +
+                                                             self.model_b['layer_' + str(n)]
+                                                             )
         forward_dic['layer_'+str(self.layers_num+1)] = self.activation(np.dot(
                                                                        forward_dic['layer_'+str(self.layers_num)],
-                                                                       self.model_w['layer_'+str(self.layers_num+1)] +
+                                                                       self.model_w['layer_'+str(self.layers_num+1)]) +
                                                                        self.model_b['layer_'+str(self.layers_num + 1)]
-                                                                       ))
+                                                                       )
         return forward_dic
 
     def backward_pass(self, outp, target):
