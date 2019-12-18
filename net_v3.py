@@ -202,7 +202,28 @@ class Nnet:
         pass
 
     def load_model(self):
-        pass
+        if not os.path.isdir('model'):
+            print('Error: cannot load model, folder "model" does not exist')
+            exit(1)
+        else:
+            print('-Loading saved model...')
+            files = os.listdir('model/')
+            weights = dict()
+            biases = dict()
+            for f in files:
+                if 'w_layer' in f:
+                    name = f[2:-4]
+                    weights[name] = np.load('model/' + f)
+                if 'b_layer' in f:
+                    name = f[2:-4]
+                    biases[name] = np.load('model/' + f)
+            if len(weights) == len(biases):
+                self.model_w = weights
+                self.model_b = biases
+                print('-Complete')
+            else:
+                print('Error: cannot build model, invalid parameters')
+                exit(1)
 
     def save_model(self):
         if os.path.isdir('model'):
@@ -210,7 +231,10 @@ class Nnet:
         os.mkdir('model')
         print('-Saving model...')
         for key, value in self.model_w.items():
-            np.save('model/' + key, value)
+            np.save('model/w_' + key, value)
+        for key, value in self.model_b.items():
+            np.save('model/b_' + key, value)
+        print('-Saved')
 
     def predict(self):
         predictions = []
@@ -342,8 +366,7 @@ class Nnet:
                         data_nc=train_nc.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
                         data_qr=test.drop(['Unnamed: 0', 'Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=7,
-                        threads=threads
+                        epochs=7
                         )
             del train_nc, train_cd, test
             nnet.preprocessing()
@@ -503,8 +526,7 @@ class Nnet:
                         data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
                         layers_num=7,
-                        epochs=10,
-                        threads=threads
+                        epochs=10
                         )
             del cd_feat, nc_feat, qr_feat, qr_rscu, nc_rscu, cd_rscu
             nnet.preprocessing()
