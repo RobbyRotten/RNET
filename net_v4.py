@@ -99,7 +99,6 @@ class Nnet:
         biases['layer_' + str(self.layers_num + 1)] = np.zeros((10,)) + 0.01
         self.model_b = biases
 
-
     def forward_pass(self, inp):
         """returns net output
            by layers
@@ -202,8 +201,7 @@ class Nnet:
         for n in range(len(self.data_qr)):
             pred = self.forward_pass(self.data_qr[n])
             pred = pred['layer_' + str(self.layers_num + 1)]
-            print(pred)
-            exit(0)
+            predictions.append(np.argmax(pred))
         print('-Complete')
         return predictions
 

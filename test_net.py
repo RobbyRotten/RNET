@@ -1,6 +1,6 @@
-from net_v2 import Nnet
+from net_v5 import Nnet
 import pandas as pd
-import tensorflow as tf
+# import tensorflow as tf
 
 
 path_cd = "../RNET1/CSV/CD/Ppatens_prot_all_features_train.csv"

@@ -119,10 +119,15 @@ class Nnet:
                            )
         self.model.add(layers.Dense(1, activation='sigmoid'))
 
-        self.model.compile(optimizer=tf.keras.optimizers.SGD(),
-                           loss=tf.keras.losses.mean_squared_error,
+        self.model.compile(optimizer=tf.keras.optimizers.SGD(),  # adam
                            metrics=[tf.keras.metrics.mean_absolute_error]
                            )
+    # gridsearch scicit learn - подбор параметров - class
+    # torch nn module ->
+    # relu, scaled exp lu
+    # batch normalization
+    # к-во слоев, нелинейность, оптимизатор, регуляризация, lr
+    # tf v2 / pytorch
 
     def model_by_layers(self, start_train=True, predict=True):
         def layer(inp, chan_in, chan_out, name='FC'):

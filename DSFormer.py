@@ -88,9 +88,6 @@ class DSFormer:
 
         self.values_tr = []
         for n in range(len(self.data_tr)):
-            # self.data_tr[n] = self.data_tr[n].reshape((-1, 11))
-            # print(self.data_tr[n].shape, self.labels_tr[n].shape)
-            # exit(0)
             self.values_tr.append((self.data_tr[n],
                                    self.labels_tr[n]))
 
@@ -108,8 +105,6 @@ class DSFormer:
         return train_values, train_labels
         """
         train_values = CustomSet(self.values_tr)
-        # print(self.values_tr[0][1].shape)
-        # exit(0)
         return train_values
 
     def get_query(self):
