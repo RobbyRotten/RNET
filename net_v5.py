@@ -1,13 +1,13 @@
 import os
 import shutil
-import math
+# import math
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import layers
-from Bio import SeqIO
+# from Bio import SeqIO
 
-from fasta_parser import Parser
+# from fasta_parser import Parser
 
 
 class Nnet:
@@ -18,6 +18,7 @@ class Nnet:
                  data_qr=None,
                  layers_num=7,
                  epochs=10000,
+                 hidden=100,
                  model=None,
                  threads=1
                  ):
@@ -29,12 +30,13 @@ class Nnet:
         self.data_tr = None
         self.labels_tr = None
         self.model = None
-        self.feat_num = len(data_qr.columns) if data_qr is not None else len(data_cd.columns)
+        self.feat_num = len(data_cd.columns)
         self.layers_num = layers_num - 2
         self.epochs = epochs
         self.path = model if model is not None else model
         self.out = None
         self.threads = threads
+        self.hidden = hidden
 
         # Normalization constants
         self.maximums = [69.14414414414415,
@@ -79,7 +81,7 @@ class Nnet:
             normalized /= self.maximums[n]
             columns.append(normalized)
         normalized = np.hstack(columns)
-        normalized = normalized.reshape(self.feat_num, len(arr)).T
+        normalized = normalized.reshape(arr.shape[1], len(arr)).T
         return normalized
 
     def set_model(self):
@@ -95,21 +97,24 @@ class Nnet:
 
         self.model = tf.keras.Sequential()
         # model = tf.keras.models.Sequential()
-        self.model.add(layers.Dense(100, activation='sigmoid', input_shape=(self.feat_num, )))
+        self.model.add(layers.Dense(self.hidden, activation='sigmoid', input_shape=(self.feat_num, )))
+        stored_hidden = self.hidden 
         for n in range(self.layers_num):
-            self.model.add(layers.Dense(100,
+            stored_hidden = int(stored_hidden * 0.5)
+            self.model.add(layers.Dense(stored_hidden,
                                         activation='sigmoid',
                                         kernel_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                         bias_initializer=tf.keras.initializers.RandomNormal(seed=0),
-                                        kernel_regularizer=tf.keras.regularizers.l1_l2(),
-                                        bias_regularizer=tf.keras.regularizers.l1_l2()
+                                        # kernel_regularizer=tf.keras.regularizers.l1_l2(),
+                                        # bias_regularizer=tf.keras.regularizers.l1_l2()
                                         )
                            )
         self.model.add(layers.Dense(1, activation='sigmoid'))
 
         self.model.compile(optimizer=tf.keras.optimizers.SGD(0.7),
                            loss=tf.keras.metrics.mean_squared_error,
-                           metrics=[tf.keras.metrics.mean_absolute_error]
+                           metrics=[tf.keras.metrics.mean_squared_error]
+                           # [tf.keras.metrics.mean_absolute_error]
                            )
     # gridsearch scicit learn - подбор параметров - class
     # torch nn module ->
@@ -123,9 +128,9 @@ class Nnet:
            that decreases as epochs progress.
         """
         epochs = self.epochs
-        learning_rate = 0.7
+        learning_rate = 0.5
         if epoch > epochs * 0.5:
-            learning_rate = 0.5
+            learning_rate = 0.25
         if epoch > epochs * 0.75:
             learning_rate = 0.01
         if epoch > epochs * 0.9:

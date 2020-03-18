@@ -132,9 +132,6 @@ class Parser:
                       'mnORF_cov',
                       'SCUO',
                       ]
-        # df.index = df['Name']
-        # df.index.name = None
-        # df = df.drop('Name', axis=1)
         return df
 
     def rscu_tab(self, save):
