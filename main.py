@@ -35,42 +35,64 @@ def help(args):
 
 
 def extract(args, save):
-    cd_file = args[args.index('-cd') + 1]
-    nc_file = args[args.index('-nc') + 1]
-    qr_file = args[args.index('-qr') + 1]
-    if '.fasta' in cd_file and '.fasta' in nc_file and '.fasta' in qr_file and \
-            isfile(cd_file) and isfile(nc_file) and isfile(qr_file):
-        # Parsing query file
-        print('-Processing ' + qr_file + '...')
-        parser_qr = Parser(qr_file)
-        parser_qr.parse()
-        qr_feat = parser_qr.gen_feat_tab()
-        qr_rscu = parser_qr.rscu_tab(save)
-        query_names = qr_feat.Name
+    dfs = []
+    files = []
+    num = 0
+    if '-cd' in args:
+        cd_file = args[args.index('-cd') + 1]
+        if '.fasta' in cd_file and isfile(cd_file):
+            # Parsing ref coding file
+            print('-Processing ' + cd_file + '...')
+            parser_cd = Parser(cd_file)
+            parser_cd.parse()
+            cd_feat = parser_cd.gen_feat_tab()
+            cd_rscu = parser_cd.rscu_tab(save)
+            cd_feat = cd_feat.fillna(0)
+            dfs.append(cd_feat)
+            files.append(cd_file)
+            num += 1
+        else:
+            err(3, '-cd')
 
-        # Parsing ref coding file
-        print('-Processing ' + cd_file + '...')
-        parser_cd = Parser(cd_file)
-        parser_cd.parse()
-        cd_feat = parser_cd.gen_feat_tab()
-        cd_rscu = parser_cd.rscu_tab(save)
+    if '-nc' in args:
+        nc_file = args[args.index('-nc') + 1]
+        if '.fasta' in nc_file and isfile(nc_file):
+            # Parsing ref noncoding file
+            print('-Processing ' + nc_file + '...')
+            parser_nc = Parser(nc_file)
+            parser_nc.parse()
+            nc_feat = parser_nc.gen_feat_tab()
+            nc_rscu = parser_nc.rscu_tab(save)
+            nc_feat = nc_feat.fillna(0)
+            dfs.append(nc_feat)
+            files.append(nc_file)
+            num += 1
+        else:
+            err(3, '-nc')
 
-        # Parsing ref noncoding file
-        print('-Processing ' + nc_file + '...')
-        parser_nc = Parser(nc_file)
-        parser_nc.parse()
-        nc_feat = parser_nc.gen_feat_tab()
-        nc_rscu = parser_nc.rscu_tab(save)
+    if 'qr' in args:
+        qr_file = args[args.index('-qr') + 1]
+        if '.fasta' in qr_file and isfile(qr_file):
+            # Parsing query file
+            print('-Processing ' + qr_file + '...')
+            parser_qr = Parser(qr_file)
+            parser_qr.parse()
+            qr_feat = parser_qr.gen_feat_tab()
+            qr_rscu = parser_qr.rscu_tab(save)
+            qr_feat = qr_feat.fillna(0)
+            query_names = qr_feat.Name
+            dfs.append(qr_feat)
+            dfs.append(query_names)
+            files.append(qr_file)
+            num += 1
+        else:
+            err(3, '-qr')
 
         if save:
-            dfs = [cd_feat, nc_feat, qr_feat]
-            files = [cd_file, nc_file, qr_file]
-            for n in range(3):
+            for n in range(num):
                 dfs[n].to_csv('%s_features.csv' % files[n][:-6], sep=";", index=False)
-        cd_feat = cd_feat.fillna(0)
-        nc_feat = nc_feat.fillna(0)
-        qr_feat = qr_feat.fillna(0)
-        return cd_feat, nc_feat, qr_feat, query_names
+
+        return dfs
     else:
         err(3)
 
@@ -110,18 +132,19 @@ def read(args, save):
         err(4)
 
 
-def err(code, args=()):
+def err(code, args=''):
     if code == 1:
         print('Error: coding/noncoding/query fasta file missing')
     elif code == 2:
         print('Error: model object missing')
     elif code == 3:
-        print('Error: fasta file(s) missing')
+        print('Error: {}fasta file(s) missing'.format(args))
     elif code == 4:
         print('Error: fasta/csv file(s) missing')
     elif code == 5:
         print('Error: invalid argument "' + args[0] + '"')
     elif code == 6:
+        args = args.split()
         print('Error: arguments "' + args[0] + '" and "' + args[1] + ' should not be used together')
     elif code == 7:
         print('Error: "' + args[0] + '" argument missing')
@@ -131,15 +154,9 @@ def err(code, args=()):
 def check_args(args, valid):
     for a in args:
         if a not in valid:
-            err(5, [a])
+            err(5, a)
     if '-tr' in args and '-md' in args:
-        err(6, ['-tr', '-md'])
-    if '-nc' not in args:
-        err(7, ['-nc'])
-    if '-cd' not in args:
-        err(7, ['-cd'])
-    if '-qr' not in args:
-        err(7, ['-qr'])
+        err(6, '-tr -md')
 
 
 def main():
@@ -149,7 +166,7 @@ def main():
     if '-h' in args or '--help' in args:
         help(args)
         exit(0)
-    check_args(args, valid_args)
+    # check_args(args, valid_args)
     save = False
     threads = 1
     nnet = None
@@ -163,7 +180,13 @@ def main():
 
     # Training features extraction
     elif '-ex' in args:
-        cd_feat, nc_feat, qr_feat, query_names = extract(args, save)
+        dfs = extract(args, save)
+        if '-cd' in args:
+            cd_feat = dfs[0]
+        elif '-nc' in args:
+            nc_feat = dfs[1]
+        elif '-qr' in args:
+            qr_feat, query_names = dfs[2], dfs[3]
 
     # Training data reading & query features extraction
     elif '-ex' not in args:
