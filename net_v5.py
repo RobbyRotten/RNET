@@ -20,7 +20,8 @@ class Nnet:
                  epochs=10000,
                  hidden=100,
                  model=None,
-                 threads=1
+                 threads=1,
+                 lr=0.7
                  ):
         self.data_cd = data_cd.values if data_cd is not None else [0]
         self.data_nc = data_nc.values if data_nc is not None else [0]
@@ -37,6 +38,7 @@ class Nnet:
         self.out = None
         self.threads = threads
         self.hidden = hidden
+        self.learning_rate = lr
 
         # Normalization constants
         self.maximums = [69.14414414414415,
@@ -96,7 +98,6 @@ class Nnet:
         np.random.shuffle(self.data_tr)
 
         self.model = tf.keras.Sequential()
-        # model = tf.keras.models.Sequential()
         self.model.add(layers.Dense(self.hidden, activation='sigmoid', input_shape=(self.feat_num, )))
         stored_hidden = self.hidden 
         for n in range(self.layers_num):
@@ -105,13 +106,11 @@ class Nnet:
                                         activation='sigmoid',
                                         kernel_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                         bias_initializer=tf.keras.initializers.RandomNormal(seed=0),
-                                        # kernel_regularizer=tf.keras.regularizers.l1_l2(),
-                                        # bias_regularizer=tf.keras.regularizers.l1_l2()
                                         )
                            )
         self.model.add(layers.Dense(1, activation='sigmoid'))
 
-        self.model.compile(optimizer=tf.keras.optimizers.SGD(0.7),
+        self.model.compile(optimizer=tf.keras.optimizers.SGD(self.learning_rate),
                            loss=tf.keras.metrics.mean_squared_error,
                            metrics=[tf.keras.metrics.mean_squared_error]
                            # [tf.keras.metrics.mean_absolute_error]
