@@ -207,8 +207,9 @@ class ORFHandler:
                     for stop in stop_l:
                         ORFlen = stop - start  # ORF length in codons
                         if ORFlen > 3:
-                            frame = fr[start:stop]
-                            if 'TAA' not in frame and 'TAG' not in frame and 'TGA' not in frame:
+                            frame = fr[start:stop+1]
+                            frame_inner = fr[start:stop]
+                            if 'TAA' not in frame_inner and 'TAG' not in frame_inner and 'TGA' not in frame_inner:
                                 self.orfs.append(frame)
 
     def mean_orf_counter(self):
