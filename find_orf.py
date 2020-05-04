@@ -31,7 +31,7 @@ class OrfFinder:
                        'E': ['GAA', 'GAG'],
                        'C': ['TGT', 'TGC'],
                        'R': ['CGT', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'],
-                       'G': ['GGT', 'GGC', 'GGA', 'GGG'],
+                       'G': ['GGT', 'GGC', 'GGA', 'GGG'],'TTT'
                        'stop': ['TAA', 'TAG', 'TGA'],
                        'M': ['ATG'], 'W': ['TGG'],
                        }
@@ -56,14 +56,15 @@ class OrfFinder:
                 for fr in self.fr_list:
                     frame_num += 1
                     start_atg = (self.codon_indexer(fr, 'ATG'), 'ATG')
-                    start_ctg = (self.codon_indexer(fr, 'CTG'), 'CTG')
-                    start_gtg = (self.codon_indexer(fr, 'GTG'), 'GTG')
-                    start_ttg = (self.codon_indexer(fr, 'TTG'), 'TTG')
+                    # alternative start codons
+                    # start_ctg = (self.codon_indexer(fr, 'CTG'), 'CTG')
+                    # start_gtg = (self.codon_indexer(fr, 'GTG'), 'GTG')
+                    # start_ttg = (self.codon_indexer(fr, 'TTG'), 'TTG')
 
                     stop_taa = (self.codon_indexer(fr, 'TAA'), 'TAA')
                     stop_tag = (self.codon_indexer(fr, 'TAG'), 'TAG')
                     stop_tga = (self.codon_indexer(fr, 'TGA'), 'TGA')
-                    starts = [start_atg, start_ctg, start_ttg, start_gtg]
+                    starts = [start_atg]  # , start_ctg, start_ttg, start_gtg]
                     stops = [stop_taa, stop_tag, stop_tga]
                     for start in starts:
                         start_pos, start_cod = start
