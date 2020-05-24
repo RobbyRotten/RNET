@@ -87,7 +87,9 @@ class OrfFinder:
                         ORFlen = stop - start  # ORF length in codons
                         if ORFlen > 3:
                             frame = fr[start:stop + 1]
-                            self.orfs.append((frame, start))
+                            fr_seq = ''.join(n for n in frame)
+                            coord = self.seq.index(fr_seq)
+                            self.orfs.append((frame, coord))
 
     def find_stack_orf_uorf(self):
         for n in range(len(self.orfs)):
@@ -119,12 +121,11 @@ class OrfFinder:
             if len(uorf[0]) >= len(stored_uorf[0]) and len(orf[0]) >= len(stored_orf[0]):
                 stored_uorf = uorf
                 stored_orf = orf
-        stored_uorf = stored_uorf[0]
-        stored_orf = stored_orf[0]
-        self.uorf = ''.join(n for n in stored_uorf)
-        self.orf = ''.join(n for n in stored_orf)
-        self.uorf_coord = self.seq.index(self.uorf) + 1
-        self.orf_coord = self.seq.index(self.orf) + 1
+        if len(stored_uorf[0]) != 0:
+            self.uorf = ''.join(n for n in stored_uorf[0])
+            self.uorf_coord = stored_uorf[1] + 1
+            self.orf = ''.join(n for n in stored_orf[0])
+            self.orf_coord = stored_orf[1] + 1
 
 
 seq_path = '../test_transcript.fasta'
@@ -141,10 +142,9 @@ for record in SeqIO.parse(seq_path, "fasta"):
     of.find_orfs()
     of.find_stack_orf_uorf()
     of.find_max_uorf_orf()
-
     if of.uorf is not None:
-        line = '>' + record.id + '_uorf-coord:' + str(of.uorf_coord) + '\n' + of.uorf +\
-               '\n>' + record.id + '_orf-coord:' + str(of.orf_coord) + '\n' + of.orf
+        line = '>' + record.id + '_uorf_coord:' + str(of.uorf_coord) + '\n' + of.uorf +\
+               '\n>' + record.id + '_orf_coord:' + str(of.orf_coord) + '\n' + of.orf
         if not isfile(out):
             with open(out, 'w') as f_obj:
                 f_obj.write(line)
