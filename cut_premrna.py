@@ -7,13 +7,13 @@ genome_path = '../GCF_000002425.4_Phypa_V3_genomic_100K.fna'
 out_path = '../Ppatens_pre_mRNA.fasta'
 gtf = pd.read_csv(gtf_path, delimiter='\t')
 for record in SeqIO.parse(genome_path, "fasta"):
-    chromosome = record.id[-1]
-    df = gtf[gtf['chr'] == int(chromosome)]
+    chromosome = record.id
+    df = gtf[gtf['chr'] == chromosome]
     groups = set(df['gr'])
     for gr in groups:
         transcripts = df[df['gr'] == gr].reset_index()
-        info = df.loc[0]['tr_id'] + ','
-        if all(df['str.x'] == '+'):
+        info = '>' + transcripts['tr_id'][0] + '_' + chromosome + ','
+        if all(transcripts['str.x'] == '+'):
             start = min(transcripts['value_1'])
             stop = max(transcripts['value_2'])
             premrna = record.seq[start:stop]
@@ -39,5 +39,6 @@ for record in SeqIO.parse(genome_path, "fasta"):
         else:
             with open(out_path, 'a') as f_obj:
                 f_obj.write(out)
+        print(out)
 print('Success')
 

@@ -96,21 +96,21 @@ class Nnet:
 
         self.model = tf.keras.Sequential()
         self.model.add(layers.Dense(self.hidden,
-                                    activation='sigmoid',
+                                    activation=tf.keras.activations.tanh,
                                     kernel_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                     bias_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                     input_shape=(self.feat_num, )))
-        stored_hidden = self.hidden 
+        stored_hidden = self.hidden
         for n in range(self.layers_num):
             stored_hidden = int(stored_hidden * 0.5)
             self.model.add(layers.Dense(stored_hidden,
-                                        activation='sigmoid',
+                                        activation=tf.keras.activations.tanh,
                                         kernel_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                         bias_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                         )
                            )
         self.model.add(layers.Dense(1,
-                                    activation='sigmoid',
+                                    activation=tf.keras.activations.tanh,
                                     kernel_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                     bias_initializer=tf.keras.initializers.RandomNormal(seed=0),
                                     ))

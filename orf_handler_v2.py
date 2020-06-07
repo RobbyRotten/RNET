@@ -503,7 +503,7 @@ class ORFHandler:
            other peptide properties.
         """
         if self.pept:
-            pa = ProteinAnalysis(self.pept)
+            pa = ProteinAnalysis(self.pept[:-4])
             inst = pa.instability_index()
             if inst > 0:
                 self.inst = inst

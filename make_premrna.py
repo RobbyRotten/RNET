@@ -35,6 +35,6 @@ for gene_id in gene_ids:
 with open('errors.txt', 'w') as f_obj:
     f_obj.write(err)
 grouped = pd.concat(groups, axis=0).reset_index(drop=True)
-chromosome = pd.DataFrame({'chr': grouped['coord.n_1'].str[-1]})
+chromosome = pd.DataFrame({'chr': grouped['coord.n_1']})
 grouped = grouped.join(chromosome)
 grouped.to_csv(gtf_path_new, sep='\t', index=False)
