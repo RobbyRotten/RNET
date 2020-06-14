@@ -120,12 +120,6 @@ class Nnet:
                            metrics=[tf.keras.metrics.mean_squared_error]
                            # [tf.keras.metrics.mean_absolute_error]
                            )
-    # gridsearch scicit learn - подбор параметров - class
-    # torch nn module ->
-    # relu, scaled exp lu
-    # batch normalization
-    # к-во слоев, нелинейность, оптимизатор, регуляризация, lr
-    # tf v2 / pytorch
 
     def lr_schedule(self, epoch):
         """returns a custom learning rate
@@ -150,12 +144,11 @@ class Nnet:
                                  # callbacks=lr_callback
                                  )
         plt.plot(history.history['loss'])
-        plt.plot(history.history['val_loss'])
         plt.title('model loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        plt.show()
+        plt.savefig("Training_progress.png")
 
     def update_constants(self):
         pass

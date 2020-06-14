@@ -23,9 +23,9 @@ def help(args):
                         -th number of threads (1 by default)\n\n\
 -Usage for model training and prediction:' +
           '\n\t' + args[0] +
-          ' -tr -pr -cd <coding_features.csv> <coding_rscu.csv> \n\
-                    -nc <noncoding_features.csv> <coding_rscu.csv> \n\
-                    -qr <query_rnas.fasta>\n\
+          ' -tr -pr -cd <coding_features.csv> \n\
+                    -nc <noncoding_features.csv> \n\
+                    -qr <query_rnas.csv>\n\
                     -sv flag if you want to save feature tables\n\
                     -sm flag if you want to save a trained model\n\
                     -th number of threads (1 by default)\n\n\
@@ -174,7 +174,6 @@ def extract(args, save):
     if save:
         for n in range(num):
             dfs[n].to_csv('%s_features.csv' % files[n][:-6], sep=";", index=False)
-
     return {'n': nc_feat, 'c': cd_feat, 'q': qr_feat, 'qn': query_names}
 
 
@@ -190,10 +189,10 @@ def read(args, save):
             isfile(cd_file_f) and isfile(nc_file_f) and isfile(qr_file):
 
         # Parsing query file
-        # print('-Processing ' + qr_file + '...')
-        # parser_qr = Parser(qr_file)
-        # parser_qr.parse()
-        # qr_feat = parser_qr.gen_feat_tab()
+        print('-Processing ' + qr_file + '...')
+        parser_qr = Parser(qr_file)
+        parser_qr.parse()
+        qr_feat = parser_qr.gen_feat_tab()
         # qr_rscu = parser_qr.rscu_tab(save)
 
         # Reading coding and noncoding files
@@ -201,11 +200,11 @@ def read(args, save):
         # cd_rscu = pd.read_csv(cd_file_u, sep=';')
         nc_feat = pd.read_csv(nc_file_f, sep=';')
         # nc_rscu = pd.read_csv(nc_file_u, sep=';')
-        qr_feat = pd.read_csv(qr_file, seq=';')
+        qr_feat = pd.read_csv(qr_file, sep=';')
 
         query_names = qr_feat.Name
-        # if save:
-        #    qr_feat.to_csv('%s_features.csv' % qr_file[:-6], sep=";", index=False)
+        if save:
+            qr_feat.to_csv('%s_features.csv' % qr_file[:-6], sep=";", index=False)
         cd_feat = cd_feat.fillna(0)
         nc_feat = nc_feat.fillna(0)
         qr_feat = qr_feat.fillna(0)
@@ -301,9 +300,9 @@ def main():
                         data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                         data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
                         layers_num=4,
-                        hidden=75,
-                        epochs=15000,
-                        lr=0.5,
+                        hidden=175,
+                        epochs=4000,
+                        lr=0.3,
                         threads=threads
                         )
             del cd_feat, nc_feat, qr_feat
@@ -319,14 +318,12 @@ def main():
         nnet = Nnet(data_cd=cd_feat.drop(['Name'], axis=1).fillna(0),
                     data_nc=nc_feat.drop(['Name'], axis=1).fillna(0),
                     data_qr=qr_feat.drop(['Name'], axis=1).fillna(0),
-                    layers_num=5,
-                    epochs=10000,
                     threads=threads,
                     model=model
                     )
 
     # Prediction
-    elif '-pr' in args:
+    if '-pr' in args:
         if nnet is not None:
             labels_out = nnet.predict()
             res = ''
@@ -334,8 +331,7 @@ def main():
                 res += query_names[n] + ' ' + str(labels_out[n]) + '\n'
             if not isdir('Predictions'):
                 mkdir('Predictions')
-            else:
-                print('Saving predicton in "Predictions/" ...')
+            print('Saving predicton in "Predictions/" ...')
             with open("Predictions/prediction_{}.txt".format(sn), 'w') as f_obj:
                 f_obj.write(res)
         else:

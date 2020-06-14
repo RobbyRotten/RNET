@@ -150,7 +150,6 @@ class Nnet:
                                  # callbacks=lr_callback
                                  )
         plt.plot(history.history['loss'])
-        plt.plot(history.history['val_loss'])
         plt.title('model loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
