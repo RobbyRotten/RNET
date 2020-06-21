@@ -2,6 +2,7 @@ from Bio import SeqIO
 from os.path import isfile
 from time import time
 from sys import stdout
+import numpy as np
 
 
 class OrfFinder:
@@ -10,11 +11,14 @@ class OrfFinder:
         self.fr_list = None
         self.orf = None
         self.uorf = None
-        self.orf_coord = None
-        self.uorf_coord = None
+        self.orf_coord1 = None
+        self.uorf_coord1 = None
+        self.orf_coord2 = None
+        self.uorf_coord2 = None
+        self.stops = None
+        self.ptc = 0
         self.orfs = []
         self.orf_uorf = []
-        self.ptcs = []
         self.codons = {'F': ['TTT', 'TTC'],
                        'L': ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG'],
                        'I': ['ATT', 'ATC', 'ATA'],
@@ -33,7 +37,7 @@ class OrfFinder:
                        'C': ['TGT', 'TGC'],
                        'R': ['CGT', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'],
                        'G': ['GGT', 'GGC', 'GGA', 'GGG'], 'TTT'
-                                                          'stop': ['TAA', 'TAG', 'TGA'],
+                       'stop': ['TAA', 'TAG', 'TGA'],
                        'M': ['ATG'], 'W': ['TGG'],
                        }
 
@@ -71,6 +75,7 @@ class OrfFinder:
             starts = [start_atg]  # , start_ctg, start_acg, start_gtg, start_ttg,
             # start_atc, start_att, start_aag, start_ata, start_agg]
             stops = [stop_taa, stop_tag, stop_tga]
+            self.stops = stops
             for start in starts:
                 start_pos, start_cod = start
                 for stop in stops:
@@ -97,7 +102,7 @@ class OrfFinder:
             for m in range(len(self.orfs)):
                 if n != m:
                     orf = self.orfs[m]
-                    if uorf[1] + len(uorf[0]) <= orf[1]:
+                    if uorf[1] + len(uorf[0]) <= orf[1] and len(uorf[0]) <= 100:
                         self.orf_uorf.append([uorf, orf])
 
     def codon_indexer(self, fr, codon):
@@ -123,9 +128,38 @@ class OrfFinder:
                 stored_orf = orf
         if len(stored_uorf[0]) != 0:
             self.uorf = ''.join(n for n in stored_uorf[0])
-            self.uorf_coord = stored_uorf[1] + 1
+            self.uorf_coord1 = stored_uorf[1]
+            self.uorf_coord2 = stored_uorf[1] + len(self.uorf)
             self.orf = ''.join(n for n in stored_orf[0])
-            self.orf_coord = stored_orf[1] + 1
+            self.orf_coord1 = stored_orf[1]
+            self.orf_coord2 = stored_orf[1] + len(self.orf)
+        else:
+            stored_orf = ['', 0]
+            for orf in self.orfs:
+                if len(orf[0]) > len(stored_orf[0]):
+                    stored_orf = orf
+            self.orf = ''.join(n for n in stored_orf[0])
+            self.orf_coord1 = stored_orf[1]
+            self.orf_coord2 = stored_orf[1] + len(self.orf)
+        self.find_ptc(self.orf)
+
+    def find_ptc(self, orf):
+        length = len(orf) * 3
+        stops = ['TAA', 'TAG', 'TGA']
+        inds = {'TAA': [], 'TAG': [], 'TGA': []}
+        for stop in stops:
+            stored_orf = orf
+            while stop in stored_orf:
+                ind = orf.index(stop)
+                inds[stop].append(ind)
+                stored_orf = stored_orf[ind+1:]
+        ptcs = []
+        for key in inds.keys():
+            for ind in inds[key]:
+                if 50 <= length - ind * 3 <= 55:
+                    ptcs.append(ind)
+        if len(ptcs) != 0:
+            self.ptc = min(ptcs)
 
 
 seq_path = '../test_transcript.fasta'
@@ -143,8 +177,16 @@ for record in SeqIO.parse(seq_path, "fasta"):
     of.find_stack_orf_uorf()
     of.find_max_uorf_orf()
     if of.uorf is not None:
-        line = '>' + record.id + '_uorf_coord:' + str(of.uorf_coord) + '\n' + of.uorf +\
-               '\n>' + record.id + '_orf_coord:' + str(of.orf_coord) + '\n' + of.orf
+        line = '>' + str(record.id) + ',' + str(of.uorf_coord1) + ':' + str(of.uorf_coord2) + ',' +\
+               str(of.orf_coord1) + ':' + str(of.orf_coord2) + ',' + str(of.ptc) + '\n' + str(record.seq) + '\n'
+        if not isfile(out):
+            with open(out, 'w') as f_obj:
+                f_obj.write(line)
+        else:
+            with open(out, 'a') as f_obj:
+                f_obj.write('\n' + line)
+    else:
+        line = '>' + str(record.id) + ',0:0,0:0,' + str(of.ptc) + '\n' + str(record.seq) + '\n'
         if not isfile(out):
             with open(out, 'w') as f_obj:
                 f_obj.write(line)
