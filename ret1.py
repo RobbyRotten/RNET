@@ -4,8 +4,8 @@ from os import mkdir, listdir
 from Bio import SeqIO
 import numpy as np
 
-path_tab = 'alignment/aligned_tab.txt'
-folder = 'genes/'
+path_tab = 'alignment/aligned_all_tab.txt'
+folder = 'genes1/'
 lnc_path = 'found_transcripts_lnc_de_new.fasta'
 D = 10
 
@@ -15,14 +15,14 @@ def find_retention():
     for record in SeqIO.parse(lnc_path, 'fasta'):
         lncs.append(record.id)
     files = listdir(folder)
-    fout = 'retention_new.txt'
+    fout = 'retention_1111111.txt'
     num = len(files)
     cnt = 0
     for f in files:
         # print(f)
         out = ''
-        stdout.write('\r{}/{} ({:.2f}%) complete'.format(cnt, num, cnt / num * 100))
         cnt += 1
+        stdout.write('\r{}/{} ({:.2f}%) complete'.format(cnt, num, cnt / num * 100))
         name = f[:-4]
         with open(folder + f, 'r') as f_obj:
             lines = f_obj.readlines()
@@ -69,53 +69,52 @@ def find_retention():
                     elif n == len(arr_sum) and on:
                         # print('stop')
                         exons.append(n)
-                introns = []
-                le = len(exons)
-                la = len(arr_sum)
-                for n in range(le):
-                    # print(n, len(exons), exons[n], len(arr_sum))
-                    if n == 0 and exons[n] != 0:
-                        introns.append(0)
-                    if n != le - 1:
-                        if n % 2 == 0:
-                            introns.append(exons[n] - 1)
-                        elif n % 2 != 0:
-                            introns.append(exons[n] + 1)
-                    else:
-                        if exons[n] != la - 1:
-                            introns.append(la - 1)
-                for lnc in coords_lnc.keys():
-                    coords_in_exon = []
-                    coords_in_intron = []
-                    for coord in coords_lnc[lnc]:
-                        for n in range(len(introns) - 1):
-                            if introns[n] <= coord <= introns[n + 1] and n % 2 == 0:
-                                coords_in_intron.append(coord)
-                        for n in range(len(exons) - 1):
-                            if exons[n] <= coord <= exons[n + 1] and n % 2 == 0:
-                                coords_in_exon.append(coord)
-                    out += lnc + '\t'
-                    if len(coords_in_exon) == 0:
-                        out += 'intronic\n'
-                    elif len(coords_in_intron) == 0:
-                        out += 'exonic\n'
-                    else:
-                        full_ret = False
-                        for c in coords_in_intron:
-                            if c in introns and c + 1 not in exons and c - 1 not in exons:
-                                full_ret = True
-                        if full_ret:
-                            out += 'intron_retention\n'
+                if exons[0] != 0:
+                    introns = []
+                    le = len(exons)
+                    la = len(arr_sum)
+                    for n in range(le):
+                        # print(n, len(exons), exons[n], len(arr_sum))
+                        if n == 0 and exons[n] != 0:
+                            introns.append(0)
+                        if n != le - 1:
+                            if n % 2 == 0:
+                                introns.append(exons[n] - 1)
+                            elif n % 2 != 0:
+                                introns.append(exons[n] + 1)
                         else:
-                            out += 'partial_retention\n'
-                if not isfile(fout):
-                    with open(fout, 'w') as f_obj:
-                        print('write')
-                        f_obj.write(out)
-                else:
-                    with open(fout, 'a') as f_obj:
-                        print('append')
-                        f_obj.write(out)
+                            if exons[n] != la - 1:
+                                introns.append(la - 1)
+                    for lnc in coords_lnc.keys():
+                        coords_in_exon = []
+                        coords_in_intron = []
+                        for coord in coords_lnc[lnc]:
+                            for n in range(len(introns) - 1):
+                                if introns[n] <= coord <= introns[n + 1] and n % 2 == 0:
+                                    coords_in_intron.append(coord)
+                            for n in range(len(exons) - 1):
+                                if exons[n] <= coord <= exons[n + 1] and n % 2 == 0:
+                                    coords_in_exon.append(coord)
+                        out += lnc + '\t'
+                        if len(coords_in_exon) == 0:
+                            out += 'intronic\n'
+                        elif len(coords_in_intron) == 0:
+                            out += 'exonic\n'
+                        else:
+                            full_ret = False
+                            for c in coords_in_intron:
+                                if c in introns and c + 1 not in exons and c - 1 not in exons:
+                                    full_ret = True
+                            if full_ret:
+                                out += 'intron_retention\n'
+                            else:
+                                out += 'partial_retention\n'
+                    if not isfile(fout):
+                        with open(fout, 'w') as f_obj:
+                            f_obj.write(out)
+                    else:
+                        with open(fout, 'a') as f_obj:
+                            f_obj.write(out)
 
 
 def make_lists():
@@ -161,40 +160,49 @@ def find_tr_tr():
 
 
 def overlap():
-    path_tab = 'alignment1/premrna_lnc_all_tab.txt'
+    lncs = []
+    for record in SeqIO.parse(lnc_path, 'fasta'):
+        lncs.append(record.id)
     with open(path_tab, 'r') as f_obj:
         lines = f_obj.readlines()
     out = []
+    num = len(lines)
+    cnt = 0
     for line in lines:
+        cnt += 1
+        stdout.write('\r{}/{} ({:.2f}%) complete'.format(cnt, num, cnt / num * 100))
         spl = line.split('\t')
         info = spl[1]
-        pairs = info.split(',')  # TCONS_000088_NC_005087.1,0:4157,4811:6827
-        coords = []
-        for n in pairs[1:]:
-            coord = n.split(':')
-            coords.append(int(coord[0]))
-            coords.append(int(coord[1]))
-        start = int(spl[2])
-        end = start + int(spl[3])
-        for n in range(len(coords) - 1):
-            if coords[n] <= start + D <= coords[n+1]:
-                if not (coords[n] <= start + D <= coords[n + 1] and coords[n] <= end - D <= coords[n + 1]):
-                    out.append(line)
-                    break
-        for n in range(1, len(coords)):
-            if coords[n-1] <= end - D <= coords[n]:
-                if not (coords[n-1] <= start + D <= coords[n] and coords[n-1] <= end - D <= coords[n]):
-                    out.append(line)
-                    break
+        name = spl[6]
+        if name in lncs:
+            pairs = info.split(',')  # TCONS_000088_NC_005087.1,0:4157,4811:6827
+            coords = []
+            for n in pairs[1:]:
+                coord = n.split(':')
+                coords.append(int(coord[0]))
+                coords.append(int(coord[1]))
+            start = int(spl[2])
+            end = start + int(spl[3])
+            for n in range(len(coords) - 1):
+                if coords[n] <= start + D <= coords[n+1]:
+                    if not (coords[n] <= start + D <= coords[n + 1] and coords[n] <= end - D <= coords[n + 1]):
+                        out.append(line)
+                        break
+            for n in range(1, len(coords)):
+                if coords[n-1] <= end - D <= coords[n]:
+                    if not (coords[n-1] <= start + D <= coords[n] and coords[n-1] <= end - D <= coords[n]):
+                        out.append(line)
+                        break
     sout = set(out)
     fout = ''
     for n in sout:
         fout += n
-    with open('overlap_tab_newest.txt', 'w') as f_obj:
+    with open('overlap_tab_test.txt', 'w') as f_obj:
         f_obj.write(fout)
 
 
 if __name__ == '__main__':
-    # make_lists()
-    # find_retention()
-    overlap()
+    pass
+    make_lists()
+    find_retention()
+    # overlap()

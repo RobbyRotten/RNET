@@ -123,7 +123,7 @@ def extract(args, save):
 
     if '-cd' in args:
         cd_file = args[args.index('-cd') + 1]
-        if '.fasta' in cd_file and isfile(cd_file):
+        if ('.fasta' in cd_file or '.fa' in cd_file) and isfile(cd_file):
             # Parsing ref coding file
             print('-Processing ' + cd_file + '...')
             parser_cd = Parser(cd_file)
@@ -139,7 +139,7 @@ def extract(args, save):
 
     if '-nc' in args:
         nc_file = args[args.index('-nc') + 1]
-        if '.fasta' in nc_file and isfile(nc_file):
+        if ('.fasta' in nc_file or '.fa' in nc_file) and isfile(nc_file):
             # Parsing ref noncoding file
             print('-Processing ' + nc_file + '...')
             parser_nc = Parser(nc_file)
@@ -155,7 +155,7 @@ def extract(args, save):
 
     if '-qr' in args:
         qr_file = args[args.index('-qr') + 1]
-        if '.fasta' in qr_file and isfile(qr_file):
+        if ('.fasta' in qr_file or '.fa' in qr_file) and isfile(qr_file):
             # Parsing query file
             print('-Processing ' + qr_file + '...')
             parser_qr = Parser(qr_file)
@@ -219,7 +219,7 @@ def err(code=10, args=''):
     elif code == 2:
         print('Error: model object missing')
     elif code == 3:
-        print('Error: {}fasta file(s) missing'.format(args))
+        print('Error: {} fasta file(s) missing'.format(args))
     elif code == 4:
         print('Error: fasta/csv file(s) missing')
     elif code == 5:
@@ -337,7 +337,7 @@ def main():
         else:
             err(2)
 
-    elif '-sm' in args:
+    if '-sm' in args:
         if nnet is not None:
             nnet.save_model()
         else:

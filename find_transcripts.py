@@ -8,10 +8,13 @@ seq_path = '../assemble_all_transcripts_more_then4.fa'
 transcripts = pd.read_csv(tr_path, delimiter='\t')
 expressed = transcripts[transcripts['de.pv'] > 0]
 
-ids = list(transcripts['id'])
+ids = list(expressed['id'])
+sids = set(ids)
+# print(len(ids), len(sids))
+# exit(0)
 out = ''
 for record in SeqIO.parse(seq_path, "fasta"):
-    if record.id in ids and len(record.seq) >= 8:
-        out += '>' + str(record.id) + '\n' + str(record.seq) + '\n'
-with open('found_transcripts.fasta', 'w') as f_obj:
+    if record.id in sids and len(record.seq) >= 8:
+        out += '>' + str(record.id) + '\n' + str(record.seq).upper() + '\n'
+with open('found_transcripts_new.fasta', 'w') as f_obj:
     f_obj.write(out)

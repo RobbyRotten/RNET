@@ -17,6 +17,7 @@ class OrfFinder:
         self.uorf_coord2 = None
         self.stops = None
         self.ptc = 0
+        self.freq = ''
         self.orfs = []
         self.orf_uorf = []
         self.codons = {'F': ['TTT', 'TTC'],
@@ -92,6 +93,7 @@ class OrfFinder:
                         ORFlen = stop - start  # ORF length in codons
                         if ORFlen > 3:
                             frame = fr[start:stop + 1]
+                            # print(ORFlen, fr)
                             fr_seq = ''.join(n for n in frame)
                             coord = self.seq.index(fr_seq)
                             self.orfs.append((frame, coord))
@@ -102,7 +104,7 @@ class OrfFinder:
             for m in range(len(self.orfs)):
                 if n != m:
                     orf = self.orfs[m]
-                    if uorf[1] + len(uorf[0]) <= orf[1] and len(uorf[0]) <= 100:
+                    if uorf[1] + len(uorf[0]) * 3 <= orf[1] and len(uorf[0]) * 3 <= 100:
                         self.orf_uorf.append([uorf, orf])
 
     def codon_indexer(self, fr, codon):
@@ -123,6 +125,7 @@ class OrfFinder:
         stored_uorf = [[]]
         stored_orf = [[]]
         for uorf, orf in self.orf_uorf:
+
             if len(uorf[0]) >= len(stored_uorf[0]) and len(orf[0]) >= len(stored_orf[0]):
                 stored_uorf = uorf
                 stored_orf = orf
@@ -133,6 +136,8 @@ class OrfFinder:
             self.orf = ''.join(n for n in stored_orf[0])
             self.orf_coord1 = stored_orf[1]
             self.orf_coord2 = stored_orf[1] + len(self.orf)
+            for codon in ['ATC', 'AAC', 'GGT']:
+                self.freq += ',' + codon + ':{:.8f}'.format(stored_uorf[0].count(codon))
         else:
             stored_orf = ['', 0]
             for orf in self.orfs:
@@ -144,26 +149,42 @@ class OrfFinder:
         self.find_ptc(self.orf)
 
     def find_ptc(self, orf):
-        length = len(orf) * 3
+        length = len(orf)
         stops = ['TAA', 'TAG', 'TGA']
         inds = {'TAA': [], 'TAG': [], 'TGA': []}
-        for stop in stops:
-            stored_orf = orf
-            while stop in stored_orf:
-                ind = orf.index(stop)
-                inds[stop].append(ind)
-                stored_orf = stored_orf[ind+1:]
+        n = 3
+        fr_1 = [orf[i:i + n] for i in range(0, length, n)]
+        fr_2 = [orf[i:i + n] for i in range(1, length, n)]
+        fr_3 = [orf[i:i + n] for i in range(2, length, n)]
+        delta = 0
+        ind_end = 0
+        for fr in [fr_1, fr_2, fr_3]:
+            dic = {ind: cod for ind, cod in enumerate(fr)}
+            if ind_end == 0 and len(dic) != 0:
+                ind_end = max(dic.keys()) * 3
+            # print(dic)
+            for ind, cod in dic.items():
+                for stop in stops:
+                    if cod == stop:
+                        inds[stop].append(ind * 3 + delta)
+            delta += 1
         ptcs = []
         for key in inds.keys():
             for ind in inds[key]:
-                if 50 <= length - ind * 3 <= 55:
+                if 50 <= ind_end - ind <= 55:
                     ptcs.append(ind)
         if len(ptcs) != 0:
-            self.ptc = min(ptcs)
+            stored_ptc = 0
+            stored_delta = ind_end
+            for ptc in ptcs:
+                delta = 51 - ptc
+                if delta < stored_delta:
+                    stored_ptc = ptc
+            self.ptc = stored_ptc
 
 
-seq_path = '../test_transcript.fasta'
-out = 'uorfs.fasta'
+seq_path = '../found_transcripts_lnc_de.fasta'
+out = 'uorfs_ptc_cod.fasta'
 with open(seq_path, 'r') as f_obj:
     content = f_obj.read()
 total_num = content.count('>')
@@ -178,7 +199,8 @@ for record in SeqIO.parse(seq_path, "fasta"):
     of.find_max_uorf_orf()
     if of.uorf is not None:
         line = '>' + str(record.id) + ',' + str(of.uorf_coord1) + ':' + str(of.uorf_coord2) + ',' +\
-               str(of.orf_coord1) + ':' + str(of.orf_coord2) + ',' + str(of.ptc) + '\n' + str(record.seq) + '\n'
+               str(of.orf_coord1) + ':' + str(of.orf_coord2) + ',' + str(of.ptc) + of.freq +\
+               '\n' + str(record.seq) + '\n'
         if not isfile(out):
             with open(out, 'w') as f_obj:
                 f_obj.write(line)
@@ -186,7 +208,8 @@ for record in SeqIO.parse(seq_path, "fasta"):
             with open(out, 'a') as f_obj:
                 f_obj.write('\n' + line)
     else:
-        line = '>' + str(record.id) + ',0:0,0:0,' + str(of.ptc) + '\n' + str(record.seq) + '\n'
+        line = '>' + str(record.id) + ',0:0,' + str(of.orf_coord1) + ':' + str(of.orf_coord2) + ',' + str(of.ptc) +\
+               '\n' + str(record.seq) + '\n'
         if not isfile(out):
             with open(out, 'w') as f_obj:
                 f_obj.write(line)
@@ -195,6 +218,7 @@ for record in SeqIO.parse(seq_path, "fasta"):
                 f_obj.write('\n' + line)
     t2 = time()
     done = int(50 * cnt / total_num)
+
     stdout.write("\rTotal time: {:.2f} min | [{}{}{}] {}/{} ({}%) complete ".format((t2 - t0) / 60,
                                                                                     '=' * done,
                                                                                     '>',
@@ -203,4 +227,5 @@ for record in SeqIO.parse(seq_path, "fasta"):
                                                                                     total_num,
                                                                                     str(2 * done)))
     stdout.flush()
+
 print('\nSuccess')

@@ -11,7 +11,7 @@ class ORFHandler:
         self.fr_list = None
         self.pept = None
         self.orfs = []
-        self.seq = str(seq)
+        self.seq = str(seq).upper()
         self.max_orf = None
         self.acid_us = {}
         self.rscu_acid = {}    # rscu grouped by acid
@@ -242,26 +242,30 @@ class ORFHandler:
         # fr_len /= 3
         # for triple in usage.keys():
         #     usage[triple] /= 3
-        fr_len_div = fr_len / 3
-        for acid, triples in self.codons.items():
-            self.rscu_acid[acid] = []
-            acid_us[acid] = []
-            if acid != 'M' and acid != 'W' and acid != 'stop':
-                cod_nums = list(int(usage[triple]) for triple in triples)  # ; print(cod_nums, triples)
-                # opt_triple = triples[int(np.argmax(np.array(cod_nums)))]
-                opt_triples += max(cod_nums)
-                cod_sum = sum(cod_nums)
-                if cod_sum != 0:
-                    for triple in triples:
-                        acid_us[acid].append(usage[triple] / 3)  # average usage
-                        freq = usage[triple] / cod_sum  # overall usage divided by overall sum
-                        freq = float('{:.5}'.format(freq))
-                        cod_freq[triple] = freq
-                        self.rscu_acid[acid].append(freq)
-            self.acid_us[acid] = sum(acid_us[acid]) / fr_len_div
-        opt_cod_fr = opt_triples / fr_len
-        self.opt_cod_fr = float('{:.6}'.format(opt_cod_fr))
-        self.RSCU = cod_freq
+        if fr_len != 0:
+            fr_len_div = fr_len / 3
+            for acid, triples in self.codons.items():
+                self.rscu_acid[acid] = []
+                acid_us[acid] = []
+                if acid != 'M' and acid != 'W' and acid != 'stop':
+                    cod_nums = list(int(usage[triple]) for triple in triples)  # ; print(cod_nums, triples)
+                    # opt_triple = triples[int(np.argmax(np.array(cod_nums)))]
+                    opt_triples += max(cod_nums)
+                    cod_sum = sum(cod_nums)
+                    if cod_sum != 0:
+                        for triple in triples:
+                            acid_us[acid].append(usage[triple] / 3)  # average usage
+                            freq = usage[triple] / cod_sum  # overall usage divided by overall sum
+                            freq = float('{:.5}'.format(freq))
+                            cod_freq[triple] = freq
+                            self.rscu_acid[acid].append(freq)
+                if fr_len_div != 0:
+                    self.acid_us[acid] = sum(acid_us[acid]) / fr_len_div
+                else:
+                    self.acid_us[acid] = 0
+            opt_cod_fr = opt_triples / fr_len
+            self.opt_cod_fr = float('{:.6}'.format(opt_cod_fr))
+            self.RSCU = cod_freq
 
     def fickett_count(self):
         """counts fickett score.
@@ -284,17 +288,18 @@ class ORFHandler:
                      self.cnt_converter('C', c_cnt)*0.33,
                      ]
         # base percentage
-        a_per = self.seq.count('A') / self.length
-        t_per = self.seq.count('T') / self.length
-        g_per = self.seq.count('G') / self.length
-        c_per = self.seq.count('C') / self.length
-        pers_conv = [self.per_converter('A', a_per)*0.11,
-                     self.per_converter('T', t_per)*0.12,
-                     self.per_converter('G', g_per)*0.15,
-                     self.per_converter('C', c_per)*0.14,
-                     ]
-        self.fscore = sum([cnts_conv[n]*pers_conv[n] for n in range(4)])
-        self.fscore = float('{:.6}'.format(self.fscore))
+        if self.length != 0:
+            a_per = self.seq.count('A') / self.length
+            t_per = self.seq.count('T') / self.length
+            g_per = self.seq.count('G') / self.length
+            c_per = self.seq.count('C') / self.length
+            pers_conv = [self.per_converter('A', a_per)*0.11,
+                         self.per_converter('T', t_per)*0.12,
+                         self.per_converter('G', g_per)*0.15,
+                         self.per_converter('C', c_per)*0.14,
+                         ]
+            self.fscore = sum([cnts_conv[n]*pers_conv[n] for n in range(4)])
+            self.fscore = float('{:.6}'.format(self.fscore))
 
     def cnt_converter(self, base, cnt):
         """converts a base number at
