@@ -10,11 +10,12 @@ expressed = transcripts[transcripts['de.pv'] > 0]
 
 ids = list(expressed['id'])
 sids = set(ids)
+transcripts = set(list(transcripts['id']))
 # print(len(ids), len(sids))
 # exit(0)
 out = ''
 for record in SeqIO.parse(seq_path, "fasta"):
-    if record.id in sids and len(record.seq) >= 8:
+    if record.id in transcripts and len(record.seq) >= 8:
         out += '>' + str(record.id) + '\n' + str(record.seq).upper() + '\n'
-with open('found_transcripts_new.fasta', 'w') as f_obj:
+with open('transcripts_new.fasta', 'w') as f_obj:
     f_obj.write(out)

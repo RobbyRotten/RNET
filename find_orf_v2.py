@@ -183,8 +183,8 @@ class OrfFinder:
             self.ptc = stored_ptc
 
 
-seq_path = '../found_transcripts_lnc_de.fasta'
-out = 'uorfs_ptc_cod.fasta'
+seq_path = 'transcripts_new.fasta'
+out = 'all_transcripts_uorfs_ptc.fasta'
 with open(seq_path, 'r') as f_obj:
     content = f_obj.read()
 total_num = content.count('>')

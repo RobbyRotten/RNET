@@ -204,5 +204,5 @@ def overlap():
 if __name__ == '__main__':
     pass
     make_lists()
-    find_retention()
+    # find_retention()
     # overlap()

@@ -24,6 +24,9 @@ aac_atc_ggt = 0
 zero = 0
 total = 0
 atcs, aacs, ggts = [], [], []
+atc_cnt = 0
+aac_cnt = 0
+ggt_cnt = 0
 
 for record in SeqIO.parse(path, 'fasta'):
     spl = record.id.split(',')  # TCONS_000060,85:178,182:1628,0,ATC:0.00000000,AAC:0.00000000,GGT:0.00061312
@@ -47,7 +50,13 @@ for record in SeqIO.parse(path, 'fasta'):
             atc_fr = float(spl[4].split(':')[1]) / length
             aac_fr = float(spl[5].split(':')[1]) / length
             ggt_fr = float(spl[6].split(':')[1]) / length
-
+            if atc_fr < 4.302561605663399:
+                atc_cnt += 1
+            if aac_fr < 4.302561605663399:
+                aac_cnt += 1
+            if ggt_fr < 5.1374315126009344:
+                ggt_cnt += 1
+            """
             if atc_fr != 0:
                 atcs.append(atc_fr)
             if aac_fr != 0:
@@ -81,22 +90,32 @@ for record in SeqIO.parse(path, 'fasta'):
                     ggt += 1
                 else:
                     zero += 1
+            """
 
+"""
 axes = plt.gca()
-# axes.set_xlim([0.0, 1.0])
+axes.set_xlim([0.0, 0.05])
+
 sns_plot = sns.kdeplot(aacs, shade=True)
 fig = sns_plot.get_figure()
 sns_plot = sns.kdeplot(atcs, shade=True)
 fig = sns_plot.get_figure()
 sns_plot = sns.kdeplot(ggts, shade=True)
 fig = sns_plot.get_figure()
-plt.legend(labels=['AAC', 'ATC', 'GGT'])
-plt.show()
+"""
+"""
+plt.hist(aacs, bins=200, color='red', histtype='step')
+plt.hist(atcs, bins=200, color='blue', histtype='step')
+plt.hist(ggts, bins=200, color='green', histtype='step')
+"""
+# plt.legend(labels=['AAC', 'ATC', 'GGT'])
+# plt.show()
 
-print(aacs)
-print(atcs)
-print(ggts)
+print(aac_cnt)
+print(atc_cnt)
+print(ggt_cnt)
 
+"""
 print('aac_atc_ggt', aac_atc_ggt)
 print('aac_atc', aac_atc)
 print('aac_ggt', aac_ggt)
@@ -106,5 +125,5 @@ print('aac', aac)
 print('ggt', ggt)
 print('zero', zero)
 print('total', total)
-
+"""
 # print(uorfs, ptcs, all, uorf_ptc)
